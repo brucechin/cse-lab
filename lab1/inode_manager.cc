@@ -149,7 +149,7 @@ inode_manager::alloc_inode(uint32_t type)
   char buf[BLOCK_SIZE];
   uint32_t inum;
 
-  for(inum == 1; inum <= INODE_NUM; inum++){
+  for(inum = 1; inum <= INODE_NUM; inum++){
     bm->read_block(IBLOCK(inum, bm->sb.nblocks), buf);
     inode = (struct inode*)buf + (inum - 1) % IPB;
     if(inode->type == 0) break;
@@ -272,11 +272,11 @@ inode_manager::getattr(uint32_t inum, extent_protocol::attr &a)
 
   if(inode == NULL) return;
 
-  a.type  = ino->type;
-  a.atime = ino->atime;
-  a.mtime = ino->mtime;
-  a.ctime = ino->ctime;
-  a.size  = ino->size;
+  a.type  = inode->type;
+  a.atime = inode->atime;
+  a.mtime = inode->mtime;
+  a.ctime = inode->ctime;
+  a.size  = inode->size;
 
   free(inode);
   
