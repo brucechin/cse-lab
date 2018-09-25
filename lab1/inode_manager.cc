@@ -68,14 +68,12 @@ block_manager::free_block(uint32_t id)
 
   if(id <= 0 || id > BLOCK_NUM) return; //out of range
 
- char buf[BLOCK_SIZE];
-  read_block(BBLOCK(id), buf);
-
-  int index = (id % BPB) >> 3;
-  unsigned char mask = 0xFF ^ (1 << (7 - ((id % BPB) & 0x7)));
-  buf[index] = buf[index] & mask;
-
-  write_block(BBLOCK(id), buf);
+    char buf[BLOCK_SIZE];
+    d->read_block(BBLOCK(id), buf);
+    // set coresponding bit to zero, and write back
+    char byte = buf[(id - 1) % BPB / 8];
+    buf[((id - 1) % BPB) / 8] = byte & ~((char)1 << (7 - (id - 1) % BPB % 8));
+    d->write_block(BBLOCK(id), buf);
 
   return;
 }
@@ -94,7 +92,7 @@ block_manager::block_manager()
   /* mark bootblock, superblock, bitmap, inode table region as used */
   char buf[BLOCK_SIZE];
   blockid_t cur = 0;
-  blockid_t ending = RESERVED_BLOCK(sb.ninodes, sb.nblocks);
+  blockid_t ending = (2 + ((sb.nblocks) + BPB - 1)/BPB + ((sb.ninodes) + IPB - 1)/IPB);
   while (cur < ending) {
     read_block(BBLOCK(cur), buf);
     for (int i = 0; i < BLOCK_SIZE && cur < ending; ++i) {
@@ -150,26 +148,35 @@ inode_manager::alloc_inode(uint32_t type)
    * the 1st is used for root_dir, see inode_manager::inode_manager().
    */
 
-  char buf[BLOCK_SIZE];
-  uint32_t cur = 1;
-  while (cur <= bm->sb.ninodes) {
-    bm->read_block(IBLOCK(cur, bm->sb.nblocks), buf);
-    for (int i = 0; i < IPB && cur <= bm->sb.ninodes; ++i) {
-      inode_t * ino = (inode_t *)buf + i;
-      if (ino->type == 0) {
-        ino->type = type;
-        ino->size = 0;
-        ino->atime = time(0);
-        ino->mtime = time(0);
-        ino->ctime = time(0);
-        bm->write_block(IBLOCK(cur, bm->sb.nblocks), buf);
-        return cur;
-      }
-      ++cur;
+ if (type == 0) {
+        return 0;
     }
-  }
-  printf("\tim: error! out of inodes\n");
-  exit(0);
+
+    struct inode *inode;
+    char buf[BLOCK_SIZE];
+    uint32_t inum;
+
+    for (inum = 1; inum <= INODE_NUM; inum++) {
+        bm->read_block(IBLOCK(inum, bm->sb.nblocks), buf);
+        inode = (struct inode *)buf + (inum - 1) % IPB;
+        if (inode->type == 0) { // find an empty inode
+            break;
+        }
+    }
+
+    if (inum > INODE_NUM) {
+        return 0;
+    }
+
+    inode->type = type;
+    inode->size = 0;
+    unsigned int now = (unsigned int)time(NULL);
+    inode->atime = now;
+    inode->mtime = now;
+    inode->ctime = now;
+    bm->write_block(IBLOCK(inum, bm->sb.nblocks), buf);
+    return inum;
+
 }
 
 void
@@ -239,36 +246,46 @@ void
 inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
 {
   /*
-   * your lab1 code goes here.
+   * your code goes here.
    * note: read blocks related to inode number inum,
-   * and copy them to buf_out
+   * and copy them to buf_Out
    */
+  
+  if(inum <= 0 || inum > INODE_NUM || buf_out == NULL || size == NULL) return;
+  
+  struct inode* inode = get_inode(inum);
+
+  if(inode == NULL){
+    printf("read_file: inode not found %d\n",inum);
+    return;
+  }
+  
+  char* buf = (char*)malloc(inode->size);// read all buffer
   char block[BLOCK_SIZE];
-  inode_t * ino = get_inode(inum);
-  char * buf = (char *)malloc(ino->size);
+
   unsigned int cur = 0;
-  for (int i = 0; i < NDIRECT && cur < ino->size; ++i) {
-    if (ino->size - cur > BLOCK_SIZE) {
-      bm->read_block(ino->blocks[i], buf + cur);
+  for (int i = 0; i < NDIRECT && cur < inode->size; ++i) {
+    if (inode->size - cur > BLOCK_SIZE) {
+      bm->read_block(inode->blocks[i], buf + cur);
       cur += BLOCK_SIZE;
-    } else {
-      int len = ino->size - cur;
-      bm->read_block(ino->blocks[i], block);
+    } else {// less than one full block to read
+      int len = inode->size - cur;
+      bm->read_block(inode->blocks[i], block);
       memcpy(buf + cur, block, len);
       cur += len;
     }
   }
 
-  if (cur < ino->size) {
+  if (cur < inode->size) { //need read from indirect blocks
     char indirect[BLOCK_SIZE];
-    bm->read_block(ino->blocks[NDIRECT], indirect);
-    for (unsigned int i = 0; i < NINDIRECT && cur < ino->size; ++i) {
-      blockid_t ix = *((blockid_t *)indirect + i);
-      if (ino->size - cur > BLOCK_SIZE) {
+    bm->read_block(inode->blocks[NDIRECT], indirect);
+    for (unsigned int i = 0; i < NDIRECT && cur < inode->size; i++) {
+      blockid_t ix = *((blockid_t *)indirect + i);//get the i-th indirect block id
+      if (inode->size - cur > BLOCK_SIZE) {//read full block
         bm->read_block(ix, buf + cur);
         cur += BLOCK_SIZE;
       } else {
-        int len = ino->size - cur;
+        int len = inode->size - cur;
         bm->read_block(ix, block);
         memcpy(buf + cur, block, len);
         cur += len;
@@ -276,12 +293,15 @@ inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
     }
   }
 
+  
+  unsigned int now = (unsigned int)time(NULL);
+  inode->atime = now;
+  inode->ctime = now;
   *buf_out = buf;
-  *size = ino->size;
-  ino->atime = std::time(0);
-  ino->ctime = std::time(0);
-  put_inode(inum, ino);
-  free(ino);
+  *size = inode->size;
+  put_inode(inum, inode);
+  free(inode);
+  return;
 }
 
 /* alloc/free blocks if needed */
@@ -289,89 +309,94 @@ void
 inode_manager::write_file(uint32_t inum, const char *buf, int size)
 {
   /*
-   * your lab1 code goes here.
+   * your code goes here.
    * note: write buf to blocks of inode inum.
    * you need to consider the situation when the size of buf 
-   * is larger or smaller than the size of original inode.
-   * you should free some blocks if necessary.
+   * is larger or smaller than the size of original inode
    */
+
+  if(inum <= 0 || inum > INODE_NUM || buf == NULL || size < 0) return;
+
+  struct inode* inode = get_inode(inum);
+
+  if(inode == NULL){
+    printf("write_file: inode not found %d\n",inum);
+    return;
+  }
+  
   char block[BLOCK_SIZE];
   char indirect[BLOCK_SIZE];
-  inode_t * ino = get_inode(inum);
-  unsigned int old_block_num = (ino->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  unsigned int old_block_num = (inode->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
   unsigned int new_block_num = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-  /* free some blocks */
-  if (old_block_num > new_block_num) {
+  
+  if (old_block_num > new_block_num) {//free extra blocks
     if (new_block_num > NDIRECT) {
-      bm->read_block(ino->blocks[NDIRECT], indirect);
+      bm->read_block(inode->blocks[NDIRECT], indirect);
       for (unsigned int i = new_block_num; i < old_block_num; ++i) {
         bm->free_block(*((blockid_t *)indirect + (i - NDIRECT)));
       }
     } else {
       if (old_block_num > NDIRECT) {
-        bm->read_block(ino->blocks[NDIRECT], indirect);
+        bm->read_block(inode->blocks[NDIRECT], indirect);
         for (unsigned int i = NDIRECT; i < old_block_num; ++i) {
           bm->free_block(*((blockid_t *)indirect + (i - NDIRECT)));
         }
-        bm->free_block(ino->blocks[NDIRECT]);
+        bm->free_block(inode->blocks[NDIRECT]);
         for (unsigned int i = new_block_num; i < NDIRECT; ++i) {
-          bm->free_block(ino->blocks[i]);
+          bm->free_block(inode->blocks[i]);
         }
       } else {
         for (unsigned int i = new_block_num; i < old_block_num; ++i) {
-          bm->free_block(ino->blocks[i]);
+          bm->free_block(inode->blocks[i]);
         }
       }
     }
   }
 
-  /* new some blocks */
-  if (new_block_num > old_block_num) {
+  if (new_block_num > old_block_num) { // need allocate more blocks for new file
     if (new_block_num <= NDIRECT) {
       for (unsigned int i = old_block_num; i < new_block_num; ++i) {
-        ino->blocks[i] = bm->alloc_block();
+        inode->blocks[i] = bm->alloc_block();
       }
     } else {
       if (old_block_num <= NDIRECT) {
         for (unsigned int i = old_block_num; i < NDIRECT; ++i) {
-          ino->blocks[i] = bm->alloc_block();
+          inode->blocks[i] = bm->alloc_block();
         }
-        ino->blocks[NDIRECT] = bm->alloc_block();
+        inode->blocks[NDIRECT] = bm->alloc_block();
 
         bzero(indirect, BLOCK_SIZE);
         for (unsigned int i = NDIRECT; i < new_block_num; ++i) {
           *((blockid_t *)indirect + (i - NDIRECT)) = bm->alloc_block();
         }
-        bm->write_block(ino->blocks[NDIRECT], indirect);
+        bm->write_block(inode->blocks[NDIRECT], indirect);
       } else {
-        bm->read_block(ino->blocks[NDIRECT], indirect);
+        bm->read_block(inode->blocks[NDIRECT], indirect);
         for (unsigned int i = old_block_num; i < new_block_num; ++i) {
           *((blockid_t *)indirect + (i - NDIRECT)) = bm->alloc_block();
         }
-        bm->write_block(ino->blocks[NDIRECT], indirect);
+        bm->write_block(inode->blocks[NDIRECT], indirect);
       }
     }
   }
 
-  /* write file content */
-
   int cur = 0;
-  for (int i = 0; i < NDIRECT && cur < size; ++i) {
+  for (int i = 0; i < NDIRECT && cur < size; ++i) { // similar to read file part
     if (size - cur > BLOCK_SIZE) {
-      bm->write_block(ino->blocks[i], buf + cur);
+      bm->write_block(inode->blocks[i], buf + cur);
       cur += BLOCK_SIZE;
     } else {
       int len = size - cur;
       memcpy(block, buf + cur, len);
-      bm->write_block(ino->blocks[i], block);
+      bm->write_block(inode->blocks[i], block);
       cur += len;
     }
   }
 
   if (cur < size) {
-    bm->read_block(ino->blocks[NDIRECT], indirect);
-    for (unsigned int i = 0; i < NINDIRECT && cur < size; ++i) {
+    bm->read_block(inode->blocks[NDIRECT], indirect);
+    for (unsigned int i = 0; i < NDIRECT && cur < size; ++i) {
       blockid_t ix = *((blockid_t *)indirect + i);
       if (size - cur > BLOCK_SIZE) {
         bm->write_block(ix, buf + cur);
@@ -384,34 +409,41 @@ inode_manager::write_file(uint32_t inum, const char *buf, int size)
       }
     }
   }
-
-  /* update inode */
-  ino->size = size;
-  ino->mtime = std::time(0);
-  ino->ctime = std::time(0);
-  put_inode(inum, ino);
-  free(ino);
+  
+  unsigned int now = (unsigned int)time(NULL);
+  inode->atime = now;
+  inode->ctime = now;
+  inode->mtime = now;
+  put_inode(inum,inode);
+  free(inode);
+   
+  return;
 }
 
 void
 inode_manager::getattr(uint32_t inum, extent_protocol::attr &a)
 {
   /*
-   * your lab1 code goes here.
+   * your code goes here.
    * note: get the attributes of inode inum.
    * you can refer to "struct attr" in extent_protocol.h
    */
-  struct inode * ino = get_inode(inum);
 
-  if (ino) {
-    a.type = ino->type;
-    a.atime = ino->atime;
-    a.mtime = ino->mtime;
-    a.ctime = ino->ctime;
-    a.size = ino->size;
+  if ((inum <= 0) || (inum > INODE_NUM)) return;
 
-    free(ino);
-  }
+  struct inode* inode = get_inode(inum);
+
+  if(inode == NULL) return;
+
+  a.type  = inode->type;
+  a.atime = inode->atime;
+  a.mtime = inode->mtime;
+  a.ctime = inode->ctime;
+  a.size  = inode->size;
+
+  free(inode);
+  
+  
 }
 
 void
