@@ -250,8 +250,9 @@ inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
     printf("read_file: inode not found %d\n",inum);
     return;
   }
-
-  *buf_out = (char*)malloc(inode->size);
+  *size = inode->size;
+  char* data_out = (char*)malloc(inode->size);
+  *buf_out = data_out;
   char buf[BLOCK_SIZE];
   char indirect_buf[BLOCK_SIZE / sizeof(blockid_t)];
   //int block_num = (inode->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -259,7 +260,7 @@ inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
   bool use_indirect = (inode->size > (NDIRECT * BLOCK_SIZE));
 
   uint32_t* indirect_array;
-  if(use_indirect){
+  if(use_indirect){//load indirect block id
     bm->read_block(inode->blocks[NDIRECT], indirect_buf);
     indirect_array = (uint32_t*)indirect_buf;
   }
@@ -271,16 +272,16 @@ inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
 
     if(read_block >= NDIRECT){//indirect read
       bm->read_block(indirect_array[read_block - NDIRECT], buf);
-      memcpy(*buf_out, buf, read_len);
+      memcpy(data_out, buf, read_len);
       read_block++;
       
     }else{//direct read
       bm->read_block(inode->blocks[read_block], buf);
-      memcpy(*buf_out, buf, read_len);
+      memcpy(data_out, buf, read_len);
       read_block++;
     }
 
-    *buf_out += read_len; // update read buffer pointer location
+    data_out += read_len; // update read buffer pointer location
   }
   unsigned int now = (unsigned int)time(NULL);
   inode->atime = now;
@@ -314,7 +315,7 @@ inode_manager::write_file(uint32_t inum, const char *buf, int size)
   bool old_use_indirect = (old_total_block > NDIRECT);
 
 
-  //inode->size = MIN(MAXFILE *BLOCK_SIZE, (unsigned)size);
+  inode->size = MIN(MAXFILE *BLOCK_SIZE, (unsigned)size);
   //write file info
   char indirect_buf[BLOCK_SIZE], write_buf[BLOCK_SIZE];
   uint32_t* indirect_array;
@@ -322,7 +323,6 @@ inode_manager::write_file(uint32_t inum, const char *buf, int size)
   uint32_t total_write_len = 0;
   bool use_indirect = (total_block > NDIRECT);
 
-  for(uint32_t i = 0; i < old_total_block && i < NDIRECT; i++) bm->free_block(inode->blocks[i]); //free old direct blocks;
   
   if(old_use_indirect){//free old indirect blocks
     uint32_t indirect_block = inode->blocks[NDIRECT];
@@ -332,6 +332,9 @@ inode_manager::write_file(uint32_t inum, const char *buf, int size)
     for(uint32_t i = 0; i < old_total_block - NDIRECT; i++) bm->free_block(old_indirect_array[i]);
     bm->free_block(indirect_block);
   }
+
+  for(uint32_t i = 0; i < old_total_block && i < NDIRECT; i++) bm->free_block(inode->blocks[i]); //free old direct blocks;
+
 
   if(use_indirect){//reinit indirect blocks for later write
     inode->blocks[NDIRECT] = bm->alloc_block();
@@ -349,6 +352,7 @@ inode_manager::write_file(uint32_t inum, const char *buf, int size)
     }else{//indirect write
       alloc_id = bm->alloc_block();
       indirect_array[write_block - NDIRECT] = alloc_id;
+      bm->write_block(inode->blocks[NDIRECT], indirect_buf);
     }
 
     memset(write_buf, 0, BLOCK_SIZE);
@@ -358,29 +362,14 @@ inode_manager::write_file(uint32_t inum, const char *buf, int size)
     write_block++;
   }
 
-  bm->write_block(inode->blocks[NDIRECT], indirect_buf); // update indirect index block finally
+  
   unsigned int now = (unsigned int)time(NULL);
   inode->atime = now;
   inode->ctime = now;
   inode->mtime = now;
   put_inode(inum,inode);
   free(inode);
-  
-
-/*
-if(read_block >= NDIRECT){//indirect read
-      bm->read_block(indirect_array[read_block - NDIRECT], buf);
-      memcpy(*buf_out, buf, read_len);
-      read_block++;
-      
-    }else{//direct read
-      bm->read_block(inode->blocks[read_block], buf);
-      memcpy(*buf_out, buf, read_len);
-      read_block++;
-    }
-*/
-  
-  
+   
   return;
 }
 
