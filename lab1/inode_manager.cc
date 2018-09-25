@@ -38,37 +38,24 @@ block_manager::alloc_block()
    * you need to think about which block you can start to be allocated.
    */
 
-  bool has_free_block = false;
-  uint32_t block_index, offset;
   char buf[BLOCK_SIZE];
-
-  for(block_index = 0; block_index <= BLOCK_NUM; block_index += BPB){
-
-    d->read_block(BBLOCK(block_index), buf); //read into buf
-
-    for(offset = 0; offset < BPB && block_index + offset < BLOCK_NUM; offset++){ //iterate all bits of buf
-      char byte = buf[offset / 8];
-      char mask = ((char)1 << (offset % 8));
-      if((mask & byte) == 0){// find free block
-        buf[offset / 8] = byte | mask;
-        d->write_block(BBLOCK(block_index), buf);
-        has_free_block = true;
-        break;
+  blockid_t cur = 0;
+  while (cur < sb.nblocks) {
+    read_block(BBLOCK(cur), buf);
+    for (int i = 0; i < BLOCK_SIZE && cur < sb.nblocks; ++i) {
+      unsigned char mask = 0x80;
+      while (mask > 0 && cur < sb.nblocks) {
+        if ((buf[i] & mask) == 0) {
+          buf[i] = buf[i] | mask;
+          write_block(BBLOCK(cur), buf);
+          return cur;
+        }
+        mask = mask >> 1;
+        ++cur;
       }
     }
-    
-    if(has_free_block) break;
-
   }
-
-  if(has_free_block){
-    uint32_t result = block_index + offset;
-    return result;
-  }else{
-    printf("allock_block: no empty block found\n");
-    return 0;
-  }
-
+  exit(0);
 }
 
 void
@@ -81,15 +68,15 @@ block_manager::free_block(uint32_t id)
 
   if(id <= 0 || id > BLOCK_NUM) return; //out of range
 
-  char buf[BLOCK_SIZE];
-  d->read_block(BBLOCK(id), buf);
+ char buf[BLOCK_SIZE];
+  read_block(BBLOCK(id), buf);
 
-  int byte_offset = id % BPB;
-  char byte = buf[byte_offset / 8];
-  buf[byte_offset / 8] = byte & ~((char)1 << (byte_offset % 8)); // set this block marked free
+  int index = (id % BPB) >> 3;
+  unsigned char mask = 0xFF ^ (1 << (7 - ((id % BPB) & 0x7)));
+  buf[index] = buf[index] & mask;
 
-  d->write_block(BBLOCK(id), buf); //write buf back
-  
+  write_block(BBLOCK(id), buf);
+
   return;
 }
 
