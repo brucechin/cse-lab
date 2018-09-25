@@ -38,54 +38,36 @@ block_manager::alloc_block()
    * you need to think about which block you can start to be allocated.
    */
 
-  // bool has_free_block = false;
-  // uint32_t block_index, offset;
-  // char buf[BLOCK_SIZE];
+  bool has_free_block = false;
+  uint32_t block_index, offset;
+  char buf[BLOCK_SIZE];
 
-  // for(block_index = 0; block_index <= BLOCK_NUM; block_index += BPB){
+  for(block_index = 0; block_index <= BLOCK_NUM; block_index += BPB){
 
-  //   d->read_block(BBLOCK(block_index), buf); //read into buf
+    d->read_block(BBLOCK(block_index), buf); //read into buf
 
-  //   for(offset = 0; offset < BPB && block_index + offset < BLOCK_NUM; offset++){ //iterate all bits of buf
-  //     char byte = buf[offset / 8];
-  //     char mask = ((char)1 << (offset % 8));
-  //     if((mask & byte) == 0){// find free block
-  //       buf[offset / 8] = byte | mask;
-  //       d->write_block(BBLOCK(block_index), buf);
-  //       has_free_block = true;
-  //       break;
-  //     }
-  //   }
+    for(offset = 0; offset < BPB && block_index + offset < BLOCK_NUM; offset++){ //iterate all bits of buf
+      char byte = buf[offset / 8];
+      char mask = ((char)1 << (offset % 8));
+      if((mask & byte) == 0){// find free block
+        buf[offset / 8] = byte | mask;
+        d->write_block(BBLOCK(block_index), buf);
+        has_free_block = true;
+        break;
+      }
+    }
     
-  //   if(has_free_block) break;
+    if(has_free_block) break;
 
-  // }
+  }
 
-  // if(has_free_block){
-  //   uint32_t result = block_index + offset;
-  //   return result;
-  // }else{
-  //   printf("allock_block: no empty block found\n");
-  //   return 0;
-  // }
-
-  char buf[BLOCK_SIZE], mask;
-	// search from first block to end, use first free block
-	
-	for (blockid_t check_id = 0; check_id < BLOCK_NUM; check_id += BPB) {
-		read_block(BBLOCK(check_id), buf);
-		for (uint32_t id_offset = 0; (id_offset < BPB) && (check_id + id_offset < BLOCK_NUM); id_offset++) {
-			mask = 1 << (id_offset % 8);
-			// if a block mapping bit is 0
-			if ((buf[id_offset/8] & mask) == 0) {
-				buf[id_offset/8] |= mask;
-				write_block(BBLOCK(check_id), buf);
-				return check_id + id_offset;
-			}
-		}
-	}
-	cout << "Error 01: Blocks use out." << endl;
-	exit(0);
+  if(has_free_block){
+    uint32_t result = block_index + offset;
+    return result;
+  }else{
+    printf("allock_block: no empty block found\n");
+    return 0;
+  }
 
 }
 
@@ -97,35 +79,18 @@ block_manager::free_block(uint32_t id)
    * note: you should unmark the corresponding bit in the block bitmap when free.
    */
 
-  // if(id <= 0 || id > BLOCK_NUM) return; //out of range
+  if(id <= 0 || id > BLOCK_NUM) return; //out of range
 
-  // char buf[BLOCK_SIZE];
-  // d->read_block(BBLOCK(id), buf);
+  char buf[BLOCK_SIZE];
+  d->read_block(BBLOCK(id), buf);
 
-  // int byte_offset = id % BPB;
-  // char byte = buf[byte_offset / 8];
-  // buf[byte_offset / 8] = byte & ~((char)1 << (byte_offset % 8)); // set this block marked free
+  int byte_offset = id % BPB;
+  char byte = buf[byte_offset / 8];
+  buf[byte_offset / 8] = byte & ~((char)1 << (byte_offset % 8)); // set this block marked free
 
-  // d->write_block(BBLOCK(id), buf); //write buf back
+  d->write_block(BBLOCK(id), buf); //write buf back
   
-  // return;
-
-  char buf[BLOCK_SIZE], mask;
-	// metadata blocks include "boot & superblock & bitmap * inode_table"
-	if (id < 2 + BLOCK_NUM/BPB + INODE_NUM/IPB) {
-		cout << "Error 02: Try free metadata blocks." << endl;
-		exit(0);
-	}
-	read_block(BBLOCK(id), buf);
-  uint32_t id_offset = id % BPB; // id_offset between 0 ~ 512x8-1
-	mask = 1 << (id_offset % 8);
-	// if a block mapping is 0
-	if ((buf[id_offset/8] & mask) == 0)
-		cout << "Warning 01: Free freed bitmap's bit." << endl;
-	// set this block mapping bit to 0
-	buf[id_offset/8] &= (~mask);
-	write_block(BBLOCK(id), buf);
-	return;
+  return;
 }
 
 // The layout of disk should be like this:
@@ -288,6 +253,7 @@ inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
   *size = inode->size;
   char* data_out = (char*)malloc(inode->size);
   *buf_out = data_out;
+  memset(data_out, 0, inode->size);
   char buf[BLOCK_SIZE];
   char indirect_buf[BLOCK_SIZE / sizeof(blockid_t)];
   //int block_num = (inode->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -300,7 +266,7 @@ inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
     indirect_array = (uint32_t*)indirect_buf;
   }
 
-  uint32_t remain_len = inode->size, read_len = 0, read_block = 0, total_block = inode->size / BLOCK_SIZE + (inode->size % BLOCK_SIZE == 0 ? 0 : 1);
+  uint32_t remain_len = inode->size, read_len = 0, read_block = 0;
 
   for(uint32_t total_len = 0; remain_len > 0; remain_len -= read_len, total_len += read_len){
     read_len = MIN(BLOCK_SIZE, remain_len);
@@ -350,7 +316,7 @@ inode_manager::write_file(uint32_t inum, const char *buf, int size)
   bool old_use_indirect = (old_total_block > NDIRECT);
 
 
-  inode->size = MIN(MAXFILE *BLOCK_SIZE, (unsigned)size);
+  inode->size = MIN(MAXFILE * BLOCK_SIZE, (unsigned)size);
   //write file info
   char indirect_buf[BLOCK_SIZE], write_buf[BLOCK_SIZE];
   uint32_t* indirect_array;
@@ -368,7 +334,7 @@ inode_manager::write_file(uint32_t inum, const char *buf, int size)
     bm->free_block(indirect_block);
   }
 
-  for(uint32_t i = 0; i < old_total_block && i < NDIRECT; i++) bm->free_block(inode->blocks[i]); //free old direct blocks;
+  for(uint32_t i = 0; i < MIN(old_total_block,NDIRECT); i++) bm->free_block(inode->blocks[i]); //free old direct blocks;
 
 
   if(use_indirect){//reinit indirect blocks for later write
