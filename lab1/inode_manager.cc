@@ -344,15 +344,15 @@ inode_manager::write_file(uint32_t inum, const char *buf, int size)
   
   if (old_block_num > new_block_num) {//free extra blocks
     if (new_block_num > NDIRECT) {
-      bm->read_block(inode->blocks[NDIRECT], indirect);
+      bm->read_block(inode->blocks[NDIRECT], (char*)indirect);
       for (unsigned int i = new_block_num; i < old_block_num; ++i) {
-        bm->free_block(*((blockid_t *)indirect + (i - NDIRECT)));
+        bm->free_block(indirect[i - NDIRECT]);
       }
     } else {
       if (old_block_num > NDIRECT) {
-        bm->read_block(inode->blocks[NDIRECT], indirect);
+        bm->read_block(inode->blocks[NDIRECT], (char*)indirect);
         for (unsigned int i = NDIRECT; i < old_block_num; ++i) {
-          bm->free_block(*((blockid_t *)indirect + (i - NDIRECT)));
+          bm->free_block(indirect[i - NDIRECT]);
         }
         bm->free_block(inode->blocks[NDIRECT]);
         for (unsigned int i = new_block_num; i < NDIRECT; ++i) {
@@ -380,13 +380,13 @@ inode_manager::write_file(uint32_t inum, const char *buf, int size)
 
         bzero(indirect, BLOCK_SIZE);
         for (unsigned int i = NDIRECT; i < new_block_num; ++i) {
-          *((blockid_t *)indirect + (i - NDIRECT)) = bm->alloc_block();
+          indirect[i - NDIRECT] = bm->alloc_block();
         }
         bm->write_block(inode->blocks[NDIRECT], indirect);
       } else {
         bm->read_block(inode->blocks[NDIRECT], indirect);
         for (unsigned int i = old_block_num; i < new_block_num; ++i) {
-          *((blockid_t *)indirect + (i - NDIRECT)) = bm->alloc_block();
+          indirect[i - NDIRECT] = bm->alloc_block();
         }
         bm->write_block(inode->blocks[NDIRECT], indirect);
       }
@@ -409,7 +409,7 @@ inode_manager::write_file(uint32_t inum, const char *buf, int size)
   if (cur < size) {// indirect write
     bm->read_block(inode->blocks[NDIRECT], indirect);
     for (unsigned int i = 0; i < NDIRECT && cur < size; ++i) {
-      blockid_t ix = *((blockid_t *)indirect + i);
+      blockid_t ix = indirect[i];
       if (size - cur > BLOCK_SIZE) {
         bm->write_block(ix, buf + cur);
         cur += BLOCK_SIZE;
