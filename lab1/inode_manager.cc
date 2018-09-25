@@ -39,19 +39,19 @@ block_manager::alloc_block()
    */
 
   bool has_free_block = false;
-  blockid_t block_index, offset;
+  uint32_t block_index, offset;
   char buf[BLOCK_SIZE];
 
-  for(block_index = BBLOCK(IBLOCK(INODE_NUM, sb.nblocks) + 1); block_index <= BBLOCK(BLOCK_NUM); block_index++){
+  for(block_index = 0; block_index <= BLOCK_NUM; block_index += BPB){
 
-    d->read_block(block_index, buf); //read into buf
+    d->read_block(BBLOCK(block_index), buf); //read into buf
 
-    for(offset = 0; offset < BPB; offset++){ //iterate all bits of buf
+    for(offset = 0; offset < BPB && block_index + offset < BLOCK_NUM; offset++){ //iterate all bits of buf
       char byte = buf[offset / 8];
       char mask = ((char)1 << (7 - offset % 8));
       if((mask & byte) == 0){// find free block
         buf[offset / 8] = byte | mask;
-        d->write_block(block_index, buf);
+        d->write_block(BBLOCK(block_index), buf);
         has_free_block = true;
         break;
       }
@@ -62,7 +62,7 @@ block_manager::alloc_block()
   }
 
   if(has_free_block){
-    blockid_t result = (block_index - BBLOCK(1)) * BPB + offset + 1;
+    uint32_t result = block_index + offset;
     return result;
   }else{
     printf("allock_block: no empty block found\n");
@@ -84,9 +84,9 @@ block_manager::free_block(uint32_t id)
   char buf[BLOCK_SIZE];
   d->read_block(BBLOCK(id), buf);
 
-  int byte_offset = (id - 1) % BPB;
+  int byte_offset = id % BPB;
   char byte = buf[byte_offset / 8];
-  buf[byte_offset / 8] = byte & ~((char)1 << (7 - byte_offset % 8));
+  buf[byte_offset / 8] = byte & ~((char)1 << (byte_offset % 8));
 
   d->write_block(BBLOCK(id), buf); //write buf back
   
@@ -254,7 +254,7 @@ inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
   *buf_out = (char*)malloc(inode->size);
   char buf[BLOCK_SIZE];
   char indirect_buf[BLOCK_SIZE / sizeof(blockid_t)];
-  int block_num = (inode->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  //int block_num = (inode->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
   bool use_indirect = (inode->size > (NDIRECT * BLOCK_SIZE));
 
@@ -310,7 +310,7 @@ inode_manager::write_file(uint32_t inum, const char *buf, int size)
     return;
   }
   //old file info
-  uint32_t old_size = inode->size, old_total_block = inode->size / BLOCK_SIZE + (inode->size % BLOCK_SIZE == 0 ? 0 : 1);
+  uint32_t old_total_block = inode->size / BLOCK_SIZE + (inode->size % BLOCK_SIZE == 0 ? 0 : 1);
   bool old_use_indirect = (old_total_block > NDIRECT);
 
 
