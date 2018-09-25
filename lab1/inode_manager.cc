@@ -39,8 +39,7 @@ block_manager::alloc_block()
    */
 
   bool has_free_block = false;
-  blockid_t block_index;
-  uint32_t offset;
+  blockid_t block_index, offset;
   char buf[BLOCK_SIZE];
 
   for(block_index = BBLOCK(IBLOCK(INODE_NUM, sb.nblocks) + 1); block_index <= BBLOCK(BLOCK_NUM); block_index++){
@@ -141,7 +140,32 @@ inode_manager::alloc_inode(uint32_t type)
    * note: the normal inode block should begin from the 2nd inode block.
    * the 1st is used for root_dir, see inode_manager::inode_manager().
    */
-  return 1;
+
+  if(type == 0){
+    return 0; //invalid type
+  }
+
+  struct inode * inode;
+  char buf[BLOCK_SIZE];
+  uint32_t inum;
+
+  for(inum == 1; inum <= INODE_NUM; inum++){
+    bm->read_block(IBLOCK(inum, bm->sb.nblocks), buf);
+    inode = (struct inode*)buf + (inum - 1) % IPB;
+    if(inode->type == 0) break;
+  }
+
+  if(inum > INODE_NUM) return 0; //no empty inode left
+
+  inode->atime = (unsigned int)time(NULL);
+  inode->mtime = (unsigned int)time(NULL);
+  inode->ctime = (unsigned int)time(NULL);
+  inode->type = type;
+  inode->size = 0;
+  
+  bm->write_block(IBLOCK(inum, bm->sb.nblocks), buf);
+
+  return inum;
 }
 
 void
@@ -241,8 +265,22 @@ inode_manager::getattr(uint32_t inum, extent_protocol::attr &a)
    * note: get the attributes of inode inum.
    * you can refer to "struct attr" in extent_protocol.h
    */
+
+  if ((inum <= 0) || (inum > INODE_NUM)) return;
+
+  struct inode* inode = get_inode(inum);
+
+  if(inode == NULL) return;
+
+  a.type  = ino->type;
+  a.atime = ino->atime;
+  a.mtime = ino->mtime;
+  a.ctime = ino->ctime;
+  a.size  = ino->size;
+
+  free(inode);
   
-  return;
+  
 }
 
 void
