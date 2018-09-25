@@ -10,6 +10,17 @@ disk::disk()
 void
 disk::read_block(blockid_t id, char *buf)
 {
+  if(id > BLOCK_NUM || id < 0){ //block id out of range
+    printf("read_block: block out of range: %d\n",id);
+    return;
+  }
+
+  if(buf == NULL){//empty read buf
+    printf("read_block: buf is null\n");
+    return;
+  }
+
+  memcpy(buf, blocks[id - 1], BLOCK_SIZE); //read block operation
 }
 
 void
