@@ -80,10 +80,10 @@ block_manager::free_block(uint32_t id)
    * note: you should unmark the corresponding bit in the block bitmap when free.
    */
 
-  if(id <=0 || id > BLOCK_NUM) return; //out of range
+  if(id <= 0 || id > BLOCK_NUM) return; //out of range
 
   char buf[BLOCK_SIZE];
-  d->write_block(BBLOCK(id), buf);
+  d->read_block(BBLOCK(id), buf);
 
   int byte_offset = (id - 1) % BPB;
   char byte = buf[byte_offset / 8];
