@@ -246,36 +246,46 @@ void
 inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
 {
   /*
-   * your lab1 code goes here.
+   * your code goes here.
    * note: read blocks related to inode number inum,
-   * and copy them to buf_out
+   * and copy them to buf_Out
    */
+  
+  if(inum <= 0 || inum > INODE_NUM || buf_out == NULL || size == NULL) return;
+  
+  struct inode* inode = get_inode(inum);
+
+  if(inode == NULL){
+    printf("read_file: inode not found %d\n",inum);
+    return;
+  }
+  
+  char* buf = (char*)malloc(inode->size);// read all buffer
   char block[BLOCK_SIZE];
-  inode_t * ino = get_inode(inum);
-  char * buf = (char *)malloc(ino->size);
+
   unsigned int cur = 0;
-  for (int i = 0; i < NDIRECT && cur < ino->size; ++i) {
-    if (ino->size - cur > BLOCK_SIZE) {
-      bm->read_block(ino->blocks[i], buf + cur);
+  for (int i = 0; i < NDIRECT && cur < inode->size; ++i) {
+    if (inode->size - cur > BLOCK_SIZE) {
+      bm->read_block(inode->blocks[i], buf + cur);
       cur += BLOCK_SIZE;
-    } else {
-      int len = ino->size - cur;
-      bm->read_block(ino->blocks[i], block);
+    } else {// less than one full block to read
+      int len = inode->size - cur;
+      bm->read_block(inode->blocks[i], block);
       memcpy(buf + cur, block, len);
       cur += len;
     }
   }
 
-  if (cur < ino->size) {
+  if (cur < inode->size) { //need read from indirect blocks
     char indirect[BLOCK_SIZE];
-    bm->read_block(ino->blocks[NDIRECT], indirect);
-    for (unsigned int i = 0; i < NINDIRECT && cur < ino->size; ++i) {
-      blockid_t ix = *((blockid_t *)indirect + i);
-      if (ino->size - cur > BLOCK_SIZE) {
+    bm->read_block(inode->blocks[NDIRECT], indirect);
+    for (unsigned int i = 0; i < NDIRECT && cur < inode->size; i++) {
+      blockid_t ix = *((blockid_t *)indirect + i);//get the i-th indirect block id
+      if (inode->size - cur > BLOCK_SIZE) {//read full block
         bm->read_block(ix, buf + cur);
         cur += BLOCK_SIZE;
       } else {
-        int len = ino->size - cur;
+        int len = inode->size - cur;
         bm->read_block(ix, block);
         memcpy(buf + cur, block, len);
         cur += len;
@@ -283,12 +293,15 @@ inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
     }
   }
 
+  
+  unsigned int now = (unsigned int)time(NULL);
+  inode->atime = now;
+  inode->ctime = now;
   *buf_out = buf;
-  *size = ino->size;
-  ino->atime = std::time(0);
-  ino->ctime = std::time(0);
-  put_inode(inum, ino);
-  free(ino);
+  *size = inode->size;
+  put_inode(inum, inode);
+  free(inode);
+  return;
 }
 
 /* alloc/free blocks if needed */
