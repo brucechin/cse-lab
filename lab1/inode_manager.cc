@@ -49,10 +49,10 @@ block_manager::alloc_block()
 
     for(offset = 0; offset < BPB; offset++){ //iterate all bits of buf
       char byte = buf[offset / 8];
-      char mask = ((char)1 << (7 - offset % 8))
-      if(mask & byte == 0){// find free block
+      char mask = ((char)1 << (7 - offset % 8));
+      if((mask & byte) == 0){// find free block
         buf[offset / 8] = byte | mask;
-        d-write_block(block_index, buf);
+        d->write_block(block_index, buf);
         has_free_block = true;
         break;
       }
@@ -63,7 +63,7 @@ block_manager::alloc_block()
   }
 
   if(has_free_block){
-    blockid_t result = (block_index - BLOCK(1)) * BPB + offset + 1;
+    blockid_t result = (block_index - BBLOCK(1)) * BPB + offset + 1;
     return result;
   }else{
     printf("allock_block: no empty block found\n");
@@ -87,7 +87,7 @@ block_manager::free_block(uint32_t id)
 
   int byte_offset = (id - 1) % BPB;
   char byte = buf[byte_offset / 8];
-  buf[(byte_offset / 8] = byte & ~((char)1 << (7 - byte_offset % 8));
+  buf[byte_offset / 8] = byte & ~((char)1 << (7 - byte_offset % 8));
 
   d->write_block(BBLOCK(id), buf); //write buf back
   
