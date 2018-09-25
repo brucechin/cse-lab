@@ -48,7 +48,7 @@ block_manager::alloc_block()
 
     for(offset = 0; offset < BPB && block_index + offset < BLOCK_NUM; offset++){ //iterate all bits of buf
       char byte = buf[offset / 8];
-      char mask = ((char)1 << (7 - offset % 8));
+      char mask = ((char)1 << (offset % 8));
       if((mask & byte) == 0){// find free block
         buf[offset / 8] = byte | mask;
         d->write_block(BBLOCK(block_index), buf);
@@ -86,7 +86,7 @@ block_manager::free_block(uint32_t id)
 
   int byte_offset = id % BPB;
   char byte = buf[byte_offset / 8];
-  buf[byte_offset / 8] = byte & ~((char)1 << (byte_offset % 8));
+  buf[byte_offset / 8] = byte & ~((char)1 << (byte_offset % 8)); // set this block marked free
 
   d->write_block(BBLOCK(id), buf); //write buf back
   
@@ -280,7 +280,7 @@ inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
       read_block++;
     }
 
-    buf_out += read_len; // update read buffer pointer location
+    *buf_out += read_len; // update read buffer pointer location
   }
   unsigned int now = (unsigned int)time(NULL);
   inode->atime = now;
