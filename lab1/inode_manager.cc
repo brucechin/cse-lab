@@ -10,22 +10,20 @@ disk::disk()
 void
 disk::read_block(blockid_t id, char *buf)
 {
-  if(id > BLOCK_NUM || id < 0){ //block id out of range
-    printf("read_block: block out of range: %d\n",id);
+  if(id > BLOCK_NUM || id < 0 || buf == NULL){ 
     return;
   }
 
-  if(buf == NULL){//empty read buf
-    printf("read_block: buf is null\n");
-    return;
-  }
-
-  memcpy(buf, blocks[id - 1], BLOCK_SIZE); //read block operation
+  memcpy(buf, blocks[id - 1], BLOCK_SIZE); 
 }
 
 void
 disk::write_block(blockid_t id, const char *buf)
 {
+  if (id <= 0 || id > BLOCK_NUM || buf == NULL) {
+      return;
+    }
+    memcpy(blocks[id - 1], buf, BLOCK_SIZE);
 }
 
 // block layer -----------------------------------------
@@ -40,7 +38,38 @@ block_manager::alloc_block()
    * you need to think about which block you can start to be allocated.
    */
 
-  return 0;
+  bool has_free_block = false;
+  blockid_t block_index;
+  uint32_t offset;
+  char buf[BLOCK_SIZE];
+
+  for(block_index = BBLOCK(IBLOCK(INODE_NUM, sb.nblocks) + 1); block_index <= BBLOCK(BLOCK_NUM); block_index++){
+
+    d->read_block(block_index, buf); //read into buf
+
+    for(offset = 0; offset < BPB; offset++){ //iterate all bits of buf
+      char byte = buf[offset / 8];
+      char mask = ((char)1 << (7 - offset % 8))
+      if(mask & byte == 0){// find free block
+        buf[offset / 8] = byte | mask;
+        d-write_block(block_index, buf);
+        has_free_block = true;
+        break;
+      }
+    }
+    
+    if(has_free_block) break;
+
+  }
+
+  if(has_free_block){
+    blockid_t result = (block_index - BLOCK(1)) * BPB + offset + 1;
+    return result;
+  }else{
+    printf("allock_block: no empty block found\n");
+    return 0;
+  }
+
 }
 
 void
@@ -50,6 +79,17 @@ block_manager::free_block(uint32_t id)
    * your code goes here.
    * note: you should unmark the corresponding bit in the block bitmap when free.
    */
+
+  if(id <=0 || id > BLOCK_NUM) return; //out of range
+
+  char buf[BLOCK_SIZE];
+  d->write_block(BBLOCK(id), buf);
+
+  int byte_offset = (id - 1) % BPB;
+  char byte = buf[byte_offset / 8];
+  buf[(byte_offset / 8] = byte & ~((char)1 << (7 - byte_offset % 8));
+
+  d->write_block(BBLOCK(id), buf); //write buf back
   
   return;
 }
