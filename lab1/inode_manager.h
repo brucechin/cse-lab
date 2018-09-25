@@ -63,6 +63,8 @@ class block_manager {
 // Block containing bit for block b
 #define BBLOCK(b) ((b)/BPB + 2)
 
+#define RESERVED_BLOCK(ninodes, nblocks)     (2 + ((nblocks) + BPB - 1)/BPB + ((ninodes) + IPB - 1)/IPB)
+
 #define NDIRECT 100
 #define NINDIRECT (BLOCK_SIZE / sizeof(uint))
 #define MAXFILE (NDIRECT + NINDIRECT)
