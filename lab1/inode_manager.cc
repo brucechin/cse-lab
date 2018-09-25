@@ -55,7 +55,7 @@ block_manager::alloc_block()
       }
     }
   }
-  exit(0);
+  
 }
 
 void
@@ -150,32 +150,26 @@ inode_manager::alloc_inode(uint32_t type)
    * the 1st is used for root_dir, see inode_manager::inode_manager().
    */
 
-  if(type == 0){
-    return 0; //invalid type
-  }
-
-  struct inode * inode;
   char buf[BLOCK_SIZE];
-  uint32_t inum;
-
-  for(inum = 1; inum <= INODE_NUM; inum++){
-    bm->read_block(IBLOCK(inum, bm->sb.nblocks), buf);
-    inode = (struct inode*)buf + (inum - 1) % IPB;
-    if(inode->type == 0) break;
+  uint32_t cur = 1;
+  while (cur <= bm->sb.ninodes) {
+    bm->read_block(IBLOCK(cur, bm->sb.nblocks), buf);
+    for (int i = 0; i < IPB && cur <= bm->sb.ninodes; ++i) {
+      inode_t * ino = (inode_t *)buf + i;
+      if (ino->type == 0) {
+        ino->type = type;
+        ino->size = 0;
+        ino->atime = std::time(0);
+        ino->mtime = std::time(0);
+        ino->ctime = std::time(0);
+        bm->write_block(IBLOCK(cur, bm->sb.nblocks), buf);
+        return cur;
+      }
+      ++cur;
+    }
   }
-
-  if(inum > INODE_NUM) return 0; //no empty inode left
-
-  unsigned int now = (unsigned int)time(NULL);
-  inode->atime = now;
-  inode->ctime = now;
-  inode->mtime = now;
-  inode->type = type;
-  inode->size = 0;
-  
-  bm->write_block(IBLOCK(inum, bm->sb.nblocks), buf);
-
-  return inum;
+  printf("\tim: error! out of inodes\n");
+  exit(0);
 }
 
 void
