@@ -109,7 +109,7 @@ block_manager::block_manager()
   }
 
   bzero(buf, sizeof(buf));
-  std::memcpy(buf, &sb, sizeof(sb));
+  memcpy(buf, &sb, sizeof(sb));
   write_block(1, buf);
 
 
@@ -159,9 +159,9 @@ inode_manager::alloc_inode(uint32_t type)
       if (ino->type == 0) {
         ino->type = type;
         ino->size = 0;
-        ino->atime = std::time(0);
-        ino->mtime = std::time(0);
-        ino->ctime = std::time(0);
+        ino->atime = time(0);
+        ino->mtime = time(0);
+        ino->ctime = time(0);
         bm->write_block(IBLOCK(cur, bm->sb.nblocks), buf);
         return cur;
       }
