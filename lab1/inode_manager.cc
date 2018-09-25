@@ -38,36 +38,54 @@ block_manager::alloc_block()
    * you need to think about which block you can start to be allocated.
    */
 
-  bool has_free_block = false;
-  uint32_t block_index, offset;
-  char buf[BLOCK_SIZE];
+  // bool has_free_block = false;
+  // uint32_t block_index, offset;
+  // char buf[BLOCK_SIZE];
 
-  for(block_index = 0; block_index <= BLOCK_NUM; block_index += BPB){
+  // for(block_index = 0; block_index <= BLOCK_NUM; block_index += BPB){
 
-    d->read_block(BBLOCK(block_index), buf); //read into buf
+  //   d->read_block(BBLOCK(block_index), buf); //read into buf
 
-    for(offset = 0; offset < BPB && block_index + offset < BLOCK_NUM; offset++){ //iterate all bits of buf
-      char byte = buf[offset / 8];
-      char mask = ((char)1 << (offset % 8));
-      if((mask & byte) == 0){// find free block
-        buf[offset / 8] = byte | mask;
-        d->write_block(BBLOCK(block_index), buf);
-        has_free_block = true;
-        break;
-      }
-    }
+  //   for(offset = 0; offset < BPB && block_index + offset < BLOCK_NUM; offset++){ //iterate all bits of buf
+  //     char byte = buf[offset / 8];
+  //     char mask = ((char)1 << (offset % 8));
+  //     if((mask & byte) == 0){// find free block
+  //       buf[offset / 8] = byte | mask;
+  //       d->write_block(BBLOCK(block_index), buf);
+  //       has_free_block = true;
+  //       break;
+  //     }
+  //   }
     
-    if(has_free_block) break;
+  //   if(has_free_block) break;
 
-  }
+  // }
 
-  if(has_free_block){
-    uint32_t result = block_index + offset;
-    return result;
-  }else{
-    printf("allock_block: no empty block found\n");
-    return 0;
-  }
+  // if(has_free_block){
+  //   uint32_t result = block_index + offset;
+  //   return result;
+  // }else{
+  //   printf("allock_block: no empty block found\n");
+  //   return 0;
+  // }
+
+  char buf[BLOCK_SIZE], mask;
+	// search from first block to end, use first free block
+	
+	for (blockid_t check_id = 0; check_id < BLOCK_NUM; check_id += BPB) {
+		read_block(BBLOCK(check_id), buf);
+		for (uint32_t id_offset = 0; (id_offset < BPB) && (check_id + id_offset < BLOCK_NUM); id_offset++) {
+			mask = 1 << (id_offset % 8);
+			// if a block mapping bit is 0
+			if ((buf[id_offset/8] & mask) == 0) {
+				buf[id_offset/8] |= mask;
+				write_block(BBLOCK(check_id), buf);
+				return check_id + id_offset;
+			}
+		}
+	}
+	cout << "Error 01: Blocks use out." << endl;
+	exit(0);
 
 }
 
@@ -79,18 +97,35 @@ block_manager::free_block(uint32_t id)
    * note: you should unmark the corresponding bit in the block bitmap when free.
    */
 
-  if(id <= 0 || id > BLOCK_NUM) return; //out of range
+  // if(id <= 0 || id > BLOCK_NUM) return; //out of range
 
-  char buf[BLOCK_SIZE];
-  d->read_block(BBLOCK(id), buf);
+  // char buf[BLOCK_SIZE];
+  // d->read_block(BBLOCK(id), buf);
 
-  int byte_offset = id % BPB;
-  char byte = buf[byte_offset / 8];
-  buf[byte_offset / 8] = byte & ~((char)1 << (byte_offset % 8)); // set this block marked free
+  // int byte_offset = id % BPB;
+  // char byte = buf[byte_offset / 8];
+  // buf[byte_offset / 8] = byte & ~((char)1 << (byte_offset % 8)); // set this block marked free
 
-  d->write_block(BBLOCK(id), buf); //write buf back
+  // d->write_block(BBLOCK(id), buf); //write buf back
   
-  return;
+  // return;
+
+  char buf[BLOCK_SIZE], mask;
+	// metadata blocks include "boot & superblock & bitmap * inode_table"
+	if (id < 2 + BLOCK_NUM/BPB + INODE_NUM/IPB) {
+		cout << "Error 02: Try free metadata blocks." << endl;
+		exit(0);
+	}
+	read_block(BBLOCK(id), buf);
+  uint32_t id_offset = id % BPB; // id_offset between 0 ~ 512x8-1
+	mask = 1 << (id_offset % 8);
+	// if a block mapping is 0
+	if ((buf[id_offset/8] & mask) == 0)
+		cout << "Warning 01: Free freed bitmap's bit." << endl;
+	// set this block mapping bit to 0
+	buf[id_offset/8] &= (~mask);
+	write_block(BBLOCK(id), buf);
+	return;
 }
 
 // The layout of disk should be like this:
