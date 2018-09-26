@@ -178,7 +178,7 @@ yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
      * after create file or dir, you must remember to modify the parent infomation.
      */
 
-     bool found = false;
+    bool found = false;
     lookup(parent, name, found, ino_out);
     if(!found){
         if (ec->create(extent_protocol::T_DIR, ino_out) == extent_protocol::OK) {
@@ -213,8 +213,24 @@ yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
      * note: lookup is what you need to check if directory exist;
      * after create file or dir, you must remember to modify the parent infomation.
      */
+    bool found = false;
+    lookup(parent, name, found, ino_out);
+    if (!found) {
+        return EXIST;
+    }
+    if (ec->create(extent_protocol::T_DIR, ino_out) != extent_protocol::OK) {
+        printf("create: fail to create directory\n");
+        return IOERR;
+    }
 
-   
+    dirent entry;
+    entry.name = name;
+    entry.inum = ino_out;
+    entries.push_back(entry);
+    if (writedir(parent, entries) != OK) {
+        return IOERR;
+    }   
+
     return r;
 }
 
@@ -334,7 +350,7 @@ yfs_client::write(inum ino, size_t size, off_t off, const char *data,
             buf.resize(off);
             buf.append(data,size);
         } else
-            buf.replace(off, size, string(data,size));     
+            buf.replace(off, size, std::string(data,size));     
     }
     bytes_written = size;
     ec->put(ino, buf);
@@ -350,7 +366,26 @@ int yfs_client::unlink(inum parent,const char *name)
      * note: you should remove the file using ec->remove,
      * and update the parent directory content.
      */
-
+    inum inodenum = 0;
+    bool found = false;
+    lookup(parent, name, found, inodenum);
+    if (!found) {
+        return IOERR;
+    }else{
+        std::string buf;
+        if(ec->get(parent, buf) != extent_protocol::OK) {
+            printf("unlink: read file fail\n");
+            return IOERR;
+        }
+        ec->remove(inodenum);
+        size_t begin_pos = buf.find(name);
+        buf.replace(begin_pos, strlen(name)+filename(inodenum).size()+2,"");    
+        if (buf[buf.length()-1] == ',')
+            buf.replace(buf.length()-1, 1, "");
+        ec->put(parent, buf);       
+    }
+    else
+        r = NOENT;  
     return r;
 }
 
