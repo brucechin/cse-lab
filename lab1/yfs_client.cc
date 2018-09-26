@@ -188,6 +188,19 @@ bool yfs_client::add_entry_and_save(inum parent, const char *name, inum inum) {
     return true;
 }
 
+bool yfs_client::has_duplicate(inum parent, const char *name) {
+    bool exist;
+    inum old_inum;
+
+    if (lookup(parent, name, exist, old_inum) != extent_protocol::OK) {
+        printf("has_duplicate: fail to perform lookup\n");
+
+        return true; // use true to forbid further action
+    }
+    return exist;
+}
+
+
 int
 yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
 {
@@ -199,21 +212,20 @@ yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
      * after create file or dir, you must remember to modify the parent infomation.
      */
 
-    bool found = false;
-    lookup(parent, name, found, ino_out);
-    if(!found)
-    {
-        if (ec->create(extent_protocol::T_FILE, ino_out) != extent_protocol::OK) {
-            printf("create: fail to create file\n");
-            return IOERR;
-        }
-        if (add_entry_and_save(parent, name, ino_out) == false) {
-            return IOERR;
-        }   
+    if (has_duplicate(parent, name)) {
+        return EXIST;
     }
-    else
-        r = EXIST; 
-    return r;
+
+    // create file first
+    if (ec->create(extent_protocol::T_FILE, ino_out) != extent_protocol::OK) {
+        printf("create: fail to create file\n");
+        return IOERR;
+    }
+
+    // write back
+    if (add_entry_and_save(parent, name, ino_out) == false) {
+        return IOERR;
+    }
 }
 
 int
