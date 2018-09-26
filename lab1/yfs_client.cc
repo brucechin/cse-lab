@@ -120,36 +120,72 @@ release:
 } while (0)
 
 // Only support set size of attr
-int
-yfs_client::setattr(inum ino, size_t size)
-{
-    int r = OK;
-    /*
-     * your code goes here.
-     * note: get the content of inode ino, and modify its content
-     * according to the size (<, =, or >) content length.
-     */
+// int
+// yfs_client::setattr(inum ino, size_t size)
+// {
+//     int r = OK;
+//     /*
+//      * your code goes here.
+//      * note: get the content of inode ino, and modify its content
+//      * according to the size (<, =, or >) content length.
+//      */
 
-    if(ino <= 0 || size < 0){
+//     if(ino <= 0 || size < 0){
+//         return IOERR;
+//     }
+
+//     std::string buf;   
+//     if (ec->get(ino, buf) != extent_protocol::OK) {
+//         return IOERR;
+//     }
+//     size_t bufsize = buf.size();
+//     if(size > bufsize)
+//         buf.resize(size, '\0'); 
+//     else 
+//         buf.resize(size);
+//     if (ec->put(ino, buf) != extent_protocol::OK) {
+
+//         return IOERR;
+//     }
+
+//     return r;
+// }
+int yfs_client::setattr(inum ino, size_t size) {
+    // keep off invalid input
+    if (ino <= 0) {
+        printf("setattr: invalid inode number %llu\n", ino);
         return IOERR;
     }
 
-    std::string buf;   
-    if (ec->get(ino, buf) != extent_protocol::OK) {
-        return IOERR;
-    }
-    size_t bufsize = buf.size();
-    if(size > bufsize)
-        buf.resize(size, '\0'); 
-    else 
-        buf.resize(size);
-    if (ec->put(ino, buf) != extent_protocol::OK) {
-
+    if (size < 0) {
+        printf("setattr: size cannot be negative %lu\n", size);
         return IOERR;
     }
 
-    return r;
+    // read old content
+    std::string content;
+
+    if (ec->get(ino, content) != extent_protocol::OK) {
+        printf("setattr: fail to read content\n");
+        return IOERR;
+    }
+
+    // just return if no resize should be applied
+    if (size == content.size()) {
+        return OK;
+    }
+
+    // resize and write back
+    content.resize(size);
+
+    if (ec->put(ino, content) != extent_protocol::OK) {
+        printf("setattr: failt to write content\n");
+        return IOERR;
+    }
+
+    return OK;
 }
+
 
 int 
 yfs_client::writedir(inum dir, std::list<dirent> &entries) // Write the directory entry table.
