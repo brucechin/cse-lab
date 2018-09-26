@@ -54,6 +54,7 @@ class yfs_client {
   int unlink(inum,const char *);
   int mkdir(inum , const char *, mode_t , inum &);
   int writedir(inum dir, std::list<dirent>& entries);
+  bool yfs_client::add_entry_and_save(inum parent, const char *name, inum inum);
   /** you may need to add symbolic link related methods here.*/
 };
 

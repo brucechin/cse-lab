@@ -167,6 +167,27 @@ yfs_client::writedir(inum dir, std::list<dirent> &entries) // Write the director
     return r;
 }
 
+bool yfs_client::add_entry_and_save(inum parent, const char *name, inum inum) {
+    std::list<dirent> entries;
+
+    if (readdir(parent, entries) != OK) {
+        printf("add_entry_and_save: fail to read directory entires\n");
+        return false;
+    }
+
+    dirent entry;
+    entry.name = name;
+    entry.inum = inum;
+    entries.push_back(entry);
+
+    if (writedir(parent, entries) != OK) {
+        printf("add_entry_and_save: fail to write directory entires\n");
+        return false;
+    }
+
+    return true;
+}
+
 int
 yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
 {
@@ -182,14 +203,13 @@ yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
     lookup(parent, name, found, ino_out);
     if(!found)
     {
-        ec->create(extent_protocol::T_FILE, ino_out);
-        string buf;
-        ec->get(parent,buf);
-        if (buf.size() == 0)
-            buf.append(string(name) + ',' + filename(ino_out));
-        else
-            buf.append(',' + string(name) + ',' + filename(ino_out));
-        ec->put(parent, buf);
+        if (ec->create(extent_protocol::T_FILE, ino_out) != extent_protocol::OK) {
+            printf("create: fail to create file\n");
+            return IOERR;
+        }
+        if (add_entry_and_save(parent, name, ino_out) == false) {
+            return IOERR;
+        }   
     }
     else
         r = EXIST; 
