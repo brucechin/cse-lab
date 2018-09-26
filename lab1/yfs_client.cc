@@ -231,10 +231,12 @@ bool yfs_client::add_entry_and_save(inum parent, const char *name, inum inum) {
 
     return true;
 }
-
 int yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum& ino_out) {
     // on exist, return EXIST
-    if (has_duplicate(parent, name)) {
+    bool found = false;
+    inum old_inum;
+    lookup(parent, name, found, old_inum);
+    if (found) {
         return EXIST;
     }
 
@@ -251,6 +253,37 @@ int yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum& ino_out)
 
     return OK;
 }
+// int
+// yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
+// {
+//     int r = OK;
+
+//     /*
+//      * your code goes here.
+//      * note: lookup is what you need to check if directory exist;
+//      * after create file or dir, you must remember to modify the parent infomation.
+//      */
+//     bool found = false;
+//     inum old_inum;
+//     lookup(parent, name, found, old_inum);
+//     if (found) {
+//         return EXIST;
+//     }
+//     if (ec->create(extent_protocol::T_DIR, ino_out) != extent_protocol::OK) {
+//         printf("create: fail to create directory\n");
+//         return IOERR;
+//     }
+//     std::list<dirent> entries;
+//     dirent entry;
+//     entry.name = name;
+//     entry.inum = ino_out;
+//     entries.push_back(entry);
+//     if (writedir(parent, entries) != OK) {
+//         return IOERR;
+//     }   
+
+//     return r;
+// }
 
 int
 yfs_client::lookup(inum parent, const char *name, bool &found, inum &ino_out)
