@@ -186,7 +186,8 @@ yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
      * after create file or dir, you must remember to modify the parent infomation.
      */
     bool found = false;
-    lookup(parent, name, found, ino_out);
+    inum old_inum;
+    lookup(parent, name, found, old_inum);
     if (found) {
         return EXIST;
     }
@@ -221,7 +222,8 @@ yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
      * after create file or dir, you must remember to modify the parent infomation.
      */
     bool found = false;
-    lookup(parent, name, found, ino_out);
+    inum old_inum;
+    lookup(parent, name, found, old_inum);
     if (found) {
         return EXIST;
     }
@@ -367,15 +369,10 @@ yfs_client::write(inum ino, size_t size, off_t off, const char *data,
     return r;
 }
 
-int yfs_client::unlink(inum parent,const char *name)
-{
-    int r = OK;
+int yfs_client::unlink(inum parent, const char *name) {
+    printf("unlink: try to unlink %s from parent %llu\n", name, parent);
 
-    /*
-     * your code goes here.
-     * note: you should remove the file using ec->remove,
-     * and update the parent directory content.
-     */
+    // invalid inode number
     if (parent <= 0) {
         printf("unlink: invalid inode number %llu\n", parent);
         return IOERR;
@@ -398,7 +395,19 @@ int yfs_client::unlink(inum parent,const char *name)
         }
     }
 
-    if (it == entries.end() || !isfile(it->inum) || ec->remove(it->inum) != extent_protocol::OK) {
+    if (it == entries.end()) {
+        printf("unlink: no such file or directory %s\n", name);
+        return IOERR;
+    }
+
+    if (!isfile(it->inum)) {
+        printf("unlink: %s is not a file\n", name);
+        return IOERR;
+    }
+
+    // remove file and entry in directory
+    if (ec->remove(it->inum) != extent_protocol::OK) {
+        printf("unlink: fail to remove file %s\n", name);
         return IOERR;
     }
 
@@ -408,6 +417,6 @@ int yfs_client::unlink(inum parent,const char *name)
         printf("unlink: fail to write directory entires\n");
         return IOERR;
     }
-    return r;
-}
 
+    return OK;
+}
