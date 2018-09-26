@@ -222,7 +222,7 @@ yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
      */
     bool found = false;
     lookup(parent, name, found, ino_out);
-    if (!found) {
+    if (found) {
         return EXIST;
     }
     if (ec->create(extent_protocol::T_DIR, ino_out) != extent_protocol::OK) {
@@ -343,6 +343,9 @@ yfs_client::write(inum ino, size_t size, off_t off, const char *data,
      * note: write using ec->put().
      * when off > length of original file, fill the holes with '\0'.
      */
+
+    if(ino <= 0 || size < 0 || off < 0) return IOERR;
+
     std::string buf;
     if(ec->get(ino, buf) != extent_protocol::OK) {
         printf("write: fail to read file\n");
@@ -357,10 +360,7 @@ yfs_client::write(inum ino, size_t size, off_t off, const char *data,
             buf.resize(off);
             buf.append(data,size);
         } else
-            content.replace(off,
-                        off + size <= content.size() ? size : content.size() - off,
-                        data,
-                        size);  
+            buf.replace(off, size, std::string(data,size));     
     }
     bytes_written = size;
     ec->put(ino, buf);
