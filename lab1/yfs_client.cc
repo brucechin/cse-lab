@@ -142,19 +142,17 @@ int yfs_client::writedir(inum dir, std::list<dirent> &entries) // Write the dire
         return IOERR;
 
     std::ostringstream ost;
-
-    for (std::list<dirent>::iterator it = entries.begin(); it != entries.end(); ++it) {
-        if (!ost.put((unsigned char)it->name.length()) ||
-                !ost.write(it->name.c_str(), it->name.length()) ||
-                !ost.write((char*)&it->inum, sizeof(inum))) {
-            printf("Error: ostringstream write failed.\n");
-            return IOERR;
-        }
+    for (std::list<dirent>::iterator it = entries.begin(); it != entries.end(); it++) {
+        ost << it->name;
+        ost.put('\0');
+        ost << it->inum;
     }
 
-    EXT_RPC(ec->put(dir, ost.str()));
+    if (ec->put(dir, ost.str()) != extent_protocol::OK) {
+        printf("writedir: fail to write directory\n");
+        return IOERR;
+    }
 
-release:
     return r;
 }
 
