@@ -368,10 +368,12 @@ int yfs_client::unlink(inum parent,const char *name)
      */
     inum inodenum = 0;
     bool found = false;
-    lookup(parent, name, found, inodenum);
-    if (!found) {
+    r = lookup(parent, name, found, inodenum);
+    if (r == IOERR) {
         return IOERR;
-    }else{
+    }
+    
+    if(found){
         std::string buf;
         if(ec->get(parent, buf) != extent_protocol::OK) {
             printf("unlink: read file fail\n");
@@ -383,7 +385,9 @@ int yfs_client::unlink(inum parent,const char *name)
         if (buf[buf.length()-1] == ',')
             buf.replace(buf.length()-1, 1, "");
         ec->put(parent, buf);       
-    } 
+    }else{
+        return NOENT;
+    }
     return r;
 }
 
