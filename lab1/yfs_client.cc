@@ -289,7 +289,7 @@ yfs_client::read(inum ino, size_t size, off_t off, std::string &data)
      * note: read using ec->get().
      */
 
-    if(ino <= 0 || off < 0 || size < 0 || off >= a.size){
+    if(ino <= 0 || off < 0 || size < 0 ){
         printf("read: parameter out of range\n");
         return IOERR;
     }
@@ -298,6 +298,7 @@ yfs_client::read(inum ino, size_t size, off_t off, std::string &data)
         printf("read: error getting attr\n");
         return IOERR;
     }
+
     std::string buf;    
     if (ec->get(ino, buf) != extent_protocol::OK) {
         printf("read: fail to read file\n");
@@ -319,7 +320,7 @@ yfs_client::write(inum ino, size_t size, off_t off, const char *data,
      * note: write using ec->put().
      * when off > length of original file, fill the holes with '\0'.
      */
-    string buf;
+    std::string buf;
     if(ec->get(ino, buf) != extent_protocol::OK) {
         printf("write: fail to read file\n");
         return IOERR;
