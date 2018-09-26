@@ -180,26 +180,19 @@ yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
 
     bool found = false;
     lookup(parent, name, found, ino_out);
-    if(!found){
-        if (ec->create(extent_protocol::T_DIR, ino_out) == extent_protocol::OK) {
-            std::list<dirent> entries;
-            if (readdir(parent, entries) != OK) {
-                return IOERR;
-            }
-
-            dirent entry;
-            entry.name = name;
-            entry.inum = ino_out;
-            entries.push_back(entry);
-            r = writedir(parent, entries);
-            return r;
-
-        }else{
-            return IOERR;
-        }
-    }else{
-        r = EXIST;
+    if(!found)
+    {
+        ec->create(extent_protocol::T_FILE, ino_out);
+        string buf;
+        ec->get(parent,buf);
+        if (buf.size() == 0)
+            buf.append(string(name) + ',' + filename(ino_out));
+        else
+            buf.append(',' + string(name) + ',' + filename(ino_out));
+        ec->put(parent, buf);
     }
+    else
+        r = EXIST; 
     return r;
 }
 
