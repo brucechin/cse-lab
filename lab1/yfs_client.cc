@@ -145,6 +145,21 @@ yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
      * after create file or dir, you must remember to modify the parent infomation.
      */
 
+     bool found = false;
+    lookup(parent, name, found, ino_out);
+    if(!found){
+        ec->create(extent_protocol::T_FILE, ino_out);
+        string buf;
+        ec->get(parent, buf);
+        if(buf == NULL){
+            buf.append(string(name) + ',' + filename(ino_out));
+        }else{
+            buf.append(',' + string(name) + ',' + filename(ino_out));
+        }
+        ec->put(parent, buf);
+    }else{
+        r = EXIST;
+    }
     return r;
 }
 
@@ -159,6 +174,7 @@ yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
      * after create file or dir, you must remember to modify the parent infomation.
      */
 
+   
     return r;
 }
 
@@ -173,6 +189,23 @@ yfs_client::lookup(inum parent, const char *name, bool &found, inum &ino_out)
      * you should design the format of directory content.
      */
 
+    std::list<dirent> entries;
+    found = false;
+    if(readdir(parent, entries) != OK){
+        printf("lookup: fail to read entries\n");
+        return IOERR;
+    }
+
+    for(std:list<dirent>::iterator it = entries.begin(); it != entries.end(); it++){
+        if(it->name == name){
+            found == true;
+            ino_out = it->inum;
+            break;
+        }
+    }
+    return OK;
+    
+
     return r;
 }
 
@@ -186,6 +219,19 @@ yfs_client::readdir(inum dir, std::list<dirent> &list)
      * note: you should parse the dirctory content using your defined format,
      * and push the dirents to the list.
      */
+
+    std::string buf;
+    if(ec->get(dir, buf) != extent_protocol::OK){
+        return IOERR;
+    }
+
+    list.clear();
+    std::istringstream ist(buf);
+    dirent entry;
+    while(std::getline(ist, entry.name, '\0')){
+        ist >> entry.inum;
+        list.push_back(entry);
+    }
 
     return r;
 }
