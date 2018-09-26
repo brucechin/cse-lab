@@ -211,8 +211,9 @@ yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
      * note: lookup is what you need to check if file exist;
      * after create file or dir, you must remember to modify the parent infomation.
      */
-
-    if (has_duplicate(parent, name)) {
+    bool found = false;
+    lookup(parent, name, found, ino_out);
+    if (found) {
         return EXIST;
     }
 
@@ -222,10 +223,20 @@ yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
         return IOERR;
     }
 
-    // write back
-    if (add_entry_and_save(parent, name, ino_out) == false) {
+    std::list<dirent> entries;
+
+    if (readdir(parent, entries) != OK) {
         return IOERR;
     }
+
+    dirent entry;
+    entry.name = name;
+    entry.inum = inum;
+    entries.push_back(entry);
+    if (writedir(parent, entries) != OK) {
+        return IOERR;
+    }
+    return r;
 }
 
 int
@@ -259,48 +270,65 @@ yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
     return r;
 }
 
-int yfs_client::lookup(inum parent, const char *name, bool& found,
-                       inum& ino_out) {
-    // read directory entries
+int
+yfs_client::lookup(inum parent, const char *name, bool &found, inum &ino_out)
+{
+    int r = OK;
+
+    /*
+     * your code goes here.
+     * note: lookup file from parent dir according to name;
+     * you should design the format of directory content.
+     */
+
+    if (!isdir(parent)) return IOERR;
+
+    if (!name) return r;
+
     std::list<dirent> entries;
-
-    if (readdir(parent, entries) != OK) {
-        printf("lookup: fail to read directory entires\n");
-        return IOERR;
-    }
-
-    // check if name exists
     found = false;
-
-    for (std::list<dirent>::iterator it = entries.begin(); it != entries.end();
-         ++it) {
-        if (it->name == name) {
-            found   = true;
-            ino_out = it->inum;
-        }
-    }
-
-    return OK;
-}
-int yfs_client::readdir(inum dir, std::list<dirent>& list) {
-    // get content
-    std::string content;
-
-    if (ec->get(dir, content) != extent_protocol::OK) {
+    if(readdir(parent, entries) != OK){
+        printf("lookup: fail to read entries\n");
         return IOERR;
     }
 
-    // read entries
-    list.clear();
-    std::istringstream ist(content);
-    dirent entry;
+    for(std::list<dirent>::iterator it = entries.begin(); it != entries.end(); it++){
+        if(it->name == name){
+            found = true;
+            ino_out = it->inum;
+            break;
+        }
+    }   
 
-    while (std::getline(ist, entry.name, '\0')) {
+    return r;
+}
+
+int
+yfs_client::readdir(inum dir, std::list<dirent> &list)
+{
+    int r = OK;
+
+    /*
+     * your code goes here.
+     * note: you should parse the dirctory content using your defined format,
+     * and push the dirents to the list.
+     */
+
+    std::string buf;
+    if(ec->get(dir, buf) != extent_protocol::OK){
+        printf("readdir: fail to read directory\n");
+        return IOERR;
+    }
+
+    list.clear();
+    std::istringstream ist(buf);
+    dirent entry;
+    while(std::getline(ist, entry.name, '\0')){
         ist >> entry.inum;
         list.push_back(entry);
     }
 
-    return OK;
+    return r;
 }
 
 int
