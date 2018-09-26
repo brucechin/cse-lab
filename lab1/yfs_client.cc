@@ -376,27 +376,37 @@ int yfs_client::unlink(inum parent,const char *name)
      * note: you should remove the file using ec->remove,
      * and update the parent directory content.
      */
-    inum inodenum = 0;
-    bool found = false;
-    r = lookup(parent, name, found, inodenum);
-    if (r == IOERR) {
+    if (parent <= 0) {
+        printf("unlink: invalid inode number %llu\n", parent);
         return IOERR;
     }
-    
-    if(found){
-        std::string buf;
-        if(ec->get(parent, buf) != extent_protocol::OK) {
-            printf("unlink: read file fail\n");
-            return IOERR;
+
+    // read entries
+    std::list<dirent> entries;
+
+    if (readdir(parent, entries) != OK) {
+        printf("unlink: fail to read directory\n");
+        return IOERR;
+    }
+
+    // locate target inode number
+    std::list<dirent>::iterator it;
+
+    for (it = entries.begin(); it != entries.end(); ++it) {
+        if (it->name == name) {
+            break;
         }
-        ec->remove(inodenum);
-        size_t begin_pos = buf.find(name);
-        buf.replace(begin_pos, strlen(name)+filename(inodenum).size()+2,"");    
-        if (buf[buf.length()-1] == ',')
-            buf.replace(buf.length()-1, 1, "");
-        ec->put(parent, buf);       
-    }else{
-        return NOENT;
+    }
+
+    if (it == entries.end() || !isfile(it->inum) || ec->remove(it->inum) != extent_protocol::OK) {
+        return IOERR;
+    }
+
+    entries.erase(it);
+
+    if (writedir(parent, entries) != OK) {
+        printf("unlink: fail to write directory entires\n");
+        return IOERR;
     }
     return r;
 }
