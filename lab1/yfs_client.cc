@@ -231,59 +231,38 @@ bool yfs_client::add_entry_and_save(inum parent, const char *name, inum inum) {
 
     return true;
 }
-int yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum& ino_out) {
-    // on exist, return EXIST
+
+int
+yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
+{
+    int r = OK;
+
+    /*
+     * your code goes here.
+     * note: lookup is what you need to check if directory exist;
+     * after create file or dir, you must remember to modify the parent infomation.
+     */
     bool found = false;
     inum old_inum;
     lookup(parent, name, found, old_inum);
     if (found) {
         return EXIST;
     }
-
-    // create file first
     if (ec->create(extent_protocol::T_DIR, ino_out) != extent_protocol::OK) {
         printf("create: fail to create directory\n");
         return IOERR;
     }
-
-    // write back
-    if (add_entry_and_save(parent, name, ino_out) == false) {
+    std::list<dirent> entries;
+    dirent entry;
+    entry.name = name;
+    entry.inum = ino_out;
+    entries.push_back(entry);
+    if (writedir(parent, entries) != OK) {
         return IOERR;
-    }
+    }   
 
-    return OK;
+    return r;
 }
-// int
-// yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
-// {
-//     int r = OK;
-
-//     /*
-//      * your code goes here.
-//      * note: lookup is what you need to check if directory exist;
-//      * after create file or dir, you must remember to modify the parent infomation.
-//      */
-//     bool found = false;
-//     inum old_inum;
-//     lookup(parent, name, found, old_inum);
-//     if (found) {
-//         return EXIST;
-//     }
-//     if (ec->create(extent_protocol::T_DIR, ino_out) != extent_protocol::OK) {
-//         printf("create: fail to create directory\n");
-//         return IOERR;
-//     }
-//     std::list<dirent> entries;
-//     dirent entry;
-//     entry.name = name;
-//     entry.inum = ino_out;
-//     entries.push_back(entry);
-//     if (writedir(parent, entries) != OK) {
-//         return IOERR;
-//     }   
-
-//     return r;
-// }
 
 int
 yfs_client::lookup(inum parent, const char *name, bool &found, inum &ino_out)
@@ -345,71 +324,158 @@ yfs_client::readdir(inum dir, std::list<dirent> &list)
 
     return r;
 }
-
-int
-yfs_client::read(inum ino, size_t size, off_t off, std::string &data)
-{
-    int r = OK;
-
-    /*
-     * your code goes here.
-     * note: read using ec->get().
-     */
-
-    if(ino <= 0 || off < 0 || size < 0 ){
-        printf("read: parameter out of range\n");
+int yfs_client::read(inum ino, size_t size, off_t off, std::string& data) {
+    // keep off invalid input
+    if (ino <= 0) {
+        printf("read: invalid inode number %llu\n", ino);
         return IOERR;
     }
+
+    if (size < 0) {
+        printf("read: size cannot be negative %lu\n", size);
+        return IOERR;
+    }
+
+    if (off < 0) {
+        printf("read: offset cannot be negative %li\n", off);
+        return IOERR;
+    }
+
+    // return IOERR if offset is beyond file size
     extent_protocol::attr a;
+
     if (ec->getattr(ino, a) != extent_protocol::OK) {
         printf("read: error getting attr\n");
         return IOERR;
     }
 
-    std::string buf;    
-    if (ec->get(ino, buf) != extent_protocol::OK) {
+    if (off >= a.size) {
+        printf("read: offset %li beyond file size %u\n", off, a.size);
+        return IOERR;
+    }
+
+    // read the file and get desired data
+    std::string content;
+
+    if (ec->get(ino, content) != extent_protocol::OK) {
         printf("read: fail to read file\n");
         return IOERR;
     }
-    data = buf.substr(off, size);
 
-    return r;
+    data = content.substr(off, size);
+
+    return OK;
 }
 
-int
-yfs_client::write(inum ino, size_t size, off_t off, const char *data,
-        size_t &bytes_written)
-{
-    int r = OK;
+int yfs_client::write(inum ino, size_t size, off_t off, const char *data,
+                      size_t& bytes_written) {
+    // keep off invalid input
+    if (ino <= 0) {
+        printf("write: invalid inode number %llu\n", ino);
+        return IOERR;
+    }
 
-    /*
-     * your code goes here.
-     * note: write using ec->put().
-     * when off > length of original file, fill the holes with '\0'.
-     */
+    if (size < 0) {
+        printf("write: size cannot be negative %lu\n", size);
+        return IOERR;
+    }
 
-    if(ino <= 0 || size < 0 || off < 0) return IOERR;
+    if (off < 0) {
+        printf("write: offset cannot be negative %li\n", off);
+        return IOERR;
+    }
 
-    std::string buf;
-    if(ec->get(ino, buf) != extent_protocol::OK) {
+    // read the file
+    std::string content;
+
+    if (ec->get(ino, content) != extent_protocol::OK) {
         printf("write: fail to read file\n");
         return IOERR;
     }
-    int bufsize = buf.size();
-    if(bufsize < off) {
-        buf.resize(off,'\0');   
-        buf.append(data, size);
+
+    // replace old data with new data, then write back
+    if ((unsigned)off >= content.size()) {
+        content.resize(off, '\0');
+        content.append(data, size);
     } else {
-        if(bufsize < off + (int)size) {
-            buf.resize(off);
-            buf.append(data,size);
-        } else
-            buf.replace(off, size, std::string(data,size));     
+        content.replace(off,
+                        off + size <= content.size() ? size : content.size() - off,
+                        data,
+                        size);
     }
-    bytes_written = size;
-    ec->put(ino, buf);
-    return r;
+
+    if (ec->put(ino, content) != extent_protocol::OK) {
+        printf("write: fail to write file\n");
+        return IOERR;
+    }
+
+    return OK;
 }
+
+// int
+// yfs_client::read(inum ino, size_t size, off_t off, std::string &data)
+// {
+//     int r = OK;
+
+//     /*
+//      * your code goes here.
+//      * note: read using ec->get().
+//      */
+
+//     if(ino <= 0 || off < 0 || size < 0 ){
+//         printf("read: parameter out of range\n");
+//         return IOERR;
+//     }
+//     extent_protocol::attr a;
+//     if (ec->getattr(ino, a) != extent_protocol::OK) {
+//         printf("read: error getting attr\n");
+//         return IOERR;
+//     }
+
+//     std::string buf;    
+//     if (ec->get(ino, buf) != extent_protocol::OK) {
+//         printf("read: fail to read file\n");
+//         return IOERR;
+//     }
+//     data = buf.substr(off, size);
+
+//     return r;
+// }
+
+// int
+// yfs_client::write(inum ino, size_t size, off_t off, const char *data,
+//         size_t &bytes_written)
+// {
+//     int r = OK;
+
+//     /*
+//      * your code goes here.
+//      * note: write using ec->put().
+//      * when off > length of original file, fill the holes with '\0'.
+//      */
+
+//     if(ino <= 0 || size < 0 || off < 0) return IOERR;
+
+//     std::string buf;
+//     if(ec->get(ino, buf) != extent_protocol::OK) {
+//         printf("write: fail to read file\n");
+//         return IOERR;
+//     }
+//     int bufsize = buf.size();
+//     if(bufsize < off) {
+//         buf.resize(off,'\0');   
+//         buf.append(data, size);
+//     } else {
+//         if(bufsize < off + (int)size) {
+//             buf.resize(off);
+//             buf.append(data,size);
+//         } else
+//             buf.replace(off, size, std::string(data,size));     
+//     }
+//     bytes_written = size;
+//     ec->put(ino, buf);
+//     return r;
+// }
 
 int yfs_client::unlink(inum parent, const char *name) {
     printf("unlink: try to unlink %s from parent %llu\n", name, parent);
