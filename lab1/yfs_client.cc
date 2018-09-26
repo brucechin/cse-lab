@@ -134,23 +134,16 @@ yfs_client::setattr(inum ino, size_t size)
         return IOERR;
     }
 
-    std::string content;
-
-    if (ec->get(ino, content) != extent_protocol::OK) {
-        printf("setattr: fail to read content\n");
+    std::string buf;   
+    if (ec->get(ino, buf) != extent_protocol::OK) {
         return IOERR;
     }
-
-    // just return if no resize should be applied
-    if (size == content.size()) {
-        return OK;
-    }
-
-    // resize and write back
-    content.resize(size);
-
-    if (ec->put(ino, content) != extent_protocol::OK) {
-        printf("setattr: failt to write content\n");
+    size_t bufsize = buf.size();
+    if(size > bufsize)
+        buf.resize(size, '\0'); 
+    else 
+        buf.resize(size);
+    if (ec->put(ino, buf) != extent_protocol::OK) {
         return IOERR;
     }
 
