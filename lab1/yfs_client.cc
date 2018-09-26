@@ -134,6 +134,30 @@ yfs_client::setattr(inum ino, size_t size)
     return r;
 }
 
+int yfs_client::writedir(inum dir, std::list<dirent> &entries) // Write the directory entry table.
+{
+    int r = OK;
+
+    if (!isdir(dir))
+        return IOERR;
+
+    std::ostringstream ost;
+
+    for (std::list<dirent>::iterator it = entries.begin(); it != entries.end(); ++it) {
+        if (!ost.put((unsigned char)it->name.length()) ||
+                !ost.write(it->name.c_str(), it->name.length()) ||
+                !ost.write((char*)&it->inum, sizeof(inum))) {
+            printf("Error: ostringstream write failed.\n");
+            return IOERR;
+        }
+    }
+
+    EXT_RPC(ec->put(dir, ost.str()));
+
+release:
+    return r;
+}
+
 int
 yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
 {
@@ -148,15 +172,25 @@ yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
      bool found = false;
     lookup(parent, name, found, ino_out);
     if(!found){
-        ec->create(extent_protocol::T_FILE, ino_out);
-	std::string buf;
-        ec->get(parent, buf);
-        if(buf.size() == 0){
-            buf.append(std::string(name) + ',' + filename(ino_out));
+        if (ec->create(extent_protocol::T_DIR, ino_out) == extent_protocol::OK) {
+            std::list<dirent> entries;
+            if (readdir(parent, entries) != OK) {
+                return IOERR;
+            }
+
+            dirent entry;
+            entry.name = name;
+            entry.inum = inum;
+            entries.push_back(entry);
+            r = writedir(parent, entries);
+
+        release:
+
+            return r;
+
         }else{
-            buf.append(',' + std::string(name) + ',' + filename(ino_out));
+            return IOERR;
         }
-        ec->put(parent, buf);
     }else{
         r = EXIST;
     }
@@ -188,6 +222,12 @@ yfs_client::lookup(inum parent, const char *name, bool &found, inum &ino_out)
      * note: lookup file from parent dir according to name;
      * you should design the format of directory content.
      */
+
+    if (!isdir(parent))
+        return IOERR;
+
+    if (!name)
+        return r;
 
     std::list<dirent> entries;
     found = false;
