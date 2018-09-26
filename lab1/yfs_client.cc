@@ -124,12 +124,22 @@ int
 yfs_client::setattr(inum ino, size_t size)
 {
     int r = OK;
-
     /*
      * your code goes here.
      * note: get the content of inode ino, and modify its content
      * according to the size (<, =, or >) content length.
      */
+
+    std::string buf;   
+    if (ec->get(ino, buf) != extent_protocol::OK) {
+        return IOERR;
+    }
+    size_t bufsize = buf.size();
+    if(size > bufsize)
+        buf.resize(size, '\0'); 
+    else 
+        buf.resize(size);
+    ec->put(ino, buf);
 
     return r;
 }
@@ -219,11 +229,9 @@ yfs_client::lookup(inum parent, const char *name, bool &found, inum &ino_out)
      * you should design the format of directory content.
      */
 
-    if (!isdir(parent))
-        return IOERR;
+    if (!isdir(parent)) return IOERR;
 
-    if (!name)
-        return r;
+    if (!name) return r;
 
     std::list<dirent> entries;
     found = false;
@@ -238,9 +246,7 @@ yfs_client::lookup(inum parent, const char *name, bool &found, inum &ino_out)
             ino_out = it->inum;
             break;
         }
-    }
-    return OK;
-    
+    }   
 
     return r;
 }
@@ -258,6 +264,7 @@ yfs_client::readdir(inum dir, std::list<dirent> &list)
 
     std::string buf;
     if(ec->get(dir, buf) != extent_protocol::OK){
+        printf("readdir: fail to read directory\n");
         return IOERR;
     }
 
@@ -282,6 +289,22 @@ yfs_client::read(inum ino, size_t size, off_t off, std::string &data)
      * note: read using ec->get().
      */
 
+    if(ino <= 0 || off < 0 || size < 0 || off >= a.size){
+        printf("read: parameter out of range\n");
+        return IOERR;
+    }
+    extent_protocol::attr a;
+    if (ec->getattr(ino, a) != extent_protocol::OK) {
+        printf("read: error getting attr\n");
+        return IOERR;
+    }
+    std::string buf;    
+    if (ec->get(ino, buf) != extent_protocol::OK) {
+        printf("read: fail to read file\n");
+        return IOERR;
+    }
+    data = buf.substr(off, size);
+
     return r;
 }
 
@@ -296,7 +319,24 @@ yfs_client::write(inum ino, size_t size, off_t off, const char *data,
      * note: write using ec->put().
      * when off > length of original file, fill the holes with '\0'.
      */
-
+    string buf;
+    if(ec->get(ino, buf) != extent_protocol::OK) {
+        printf("write: fail to read file\n");
+        return IOERR;
+    }
+    int bufsize = buf.size();
+    if(bufsize < off) {
+        buf.resize(off,'\0');   
+        buf.append(data, size);
+    } else {
+        if(bufsize < off + (int)size) {
+            buf.resize(off);
+            buf.append(data,size);
+        } else
+            buf.replace(off, size, string(data,size));     
+    }
+    bytes_written = size;
+    ec->put(ino, buf);
     return r;
 }
 
