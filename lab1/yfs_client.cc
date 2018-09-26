@@ -149,12 +149,12 @@ yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
     lookup(parent, name, found, ino_out);
     if(!found){
         ec->create(extent_protocol::T_FILE, ino_out);
-        string buf;
+	std::string buf;
         ec->get(parent, buf);
-        if(buf == NULL){
-            buf.append(string(name) + ',' + filename(ino_out));
+        if(buf.size() == 0){
+            buf.append(std::string(name) + ',' + filename(ino_out));
         }else{
-            buf.append(',' + string(name) + ',' + filename(ino_out));
+            buf.append(',' + std::string(name) + ',' + filename(ino_out));
         }
         ec->put(parent, buf);
     }else{
@@ -196,7 +196,7 @@ yfs_client::lookup(inum parent, const char *name, bool &found, inum &ino_out)
         return IOERR;
     }
 
-    for(std:list<dirent>::iterator it = entries.begin(); it != entries.end(); it++){
+    for(std::list<dirent>::iterator it = entries.begin(); it != entries.end(); it++){
         if(it->name == name){
             found == true;
             ino_out = it->inum;
