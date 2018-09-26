@@ -222,7 +222,7 @@ yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
         printf("create: fail to create directory\n");
         return IOERR;
     }
-
+    std::list<dirent> entries;
     dirent entry;
     entry.name = name;
     entry.inum = ino_out;
@@ -383,9 +383,7 @@ int yfs_client::unlink(inum parent,const char *name)
         if (buf[buf.length()-1] == ',')
             buf.replace(buf.length()-1, 1, "");
         ec->put(parent, buf);       
-    }
-    else
-        r = NOENT;  
+    } 
     return r;
 }
 
