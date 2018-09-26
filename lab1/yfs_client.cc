@@ -130,6 +130,10 @@ yfs_client::setattr(inum ino, size_t size)
      * according to the size (<, =, or >) content length.
      */
 
+    if(ino <= 0 || size < 0){
+        return IOERR;
+    }
+
     std::string buf;   
     if (ec->get(ino, buf) != extent_protocol::OK) {
         return IOERR;
@@ -139,7 +143,9 @@ yfs_client::setattr(inum ino, size_t size)
         buf.resize(size, '\0'); 
     else 
         buf.resize(size);
-    ec->put(ino, buf);
+    if (ec->put(ino, content) != extent_protocol::OK) {
+        return IOERR;
+    }
 
     return r;
 }
@@ -167,39 +173,6 @@ yfs_client::writedir(inum dir, std::list<dirent> &entries) // Write the director
     return r;
 }
 
-bool yfs_client::add_entry_and_save(inum parent, const char *name, inum inum) {
-    std::list<dirent> entries;
-
-    if (readdir(parent, entries) != OK) {
-        printf("add_entry_and_save: fail to read directory entires\n");
-        return false;
-    }
-
-    dirent entry;
-    entry.name = name;
-    entry.inum = inum;
-    entries.push_back(entry);
-
-    if (writedir(parent, entries) != OK) {
-        printf("add_entry_and_save: fail to write directory entires\n");
-        return false;
-    }
-
-    return true;
-}
-
-bool yfs_client::has_duplicate(inum parent, const char *name) {
-    bool exist;
-    inum old_inum;
-
-    if (lookup(parent, name, exist, old_inum) != extent_protocol::OK) {
-        printf("has_duplicate: fail to perform lookup\n");
-
-        return true; // use true to forbid further action
-    }
-    return exist;
-}
-
 
 int
 yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
@@ -217,21 +190,18 @@ yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
         return EXIST;
     }
 
-    // create file first
     if (ec->create(extent_protocol::T_FILE, ino_out) != extent_protocol::OK) {
         printf("create: fail to create file\n");
         return IOERR;
     }
 
     std::list<dirent> entries;
-
     if (readdir(parent, entries) != OK) {
         return IOERR;
     }
-
     dirent entry;
     entry.name = name;
-    entry.inum = inum;
+    entry.inum = ino_out;
     entries.push_back(entry);
     if (writedir(parent, entries) != OK) {
         return IOERR;
@@ -283,7 +253,7 @@ yfs_client::lookup(inum parent, const char *name, bool &found, inum &ino_out)
 
     if (!isdir(parent)) return IOERR;
 
-    if (!name) return r;
+    if (!name) return IOERR;
 
     std::list<dirent> entries;
     found = false;
@@ -372,24 +342,44 @@ yfs_client::write(inum ino, size_t size, off_t off, const char *data,
      * note: write using ec->put().
      * when off > length of original file, fill the holes with '\0'.
      */
-    std::string buf;
-    if(ec->get(ino, buf) != extent_protocol::OK) {
+    if (ino <= 0) {
+        printf("write: invalid inode number %llu\n", ino);
+        return IOERR;
+    }
+
+    if (size < 0) {
+        printf("write: size cannot be negative %lu\n", size);
+        return IOERR;
+    }
+
+    if (off < 0) {
+        printf("write: offset cannot be negative %li\n", off);
+        return IOERR;
+    }
+
+    // read the file
+    std::string content;
+
+    if (ec->get(ino, content) != extent_protocol::OK) {
         printf("write: fail to read file\n");
         return IOERR;
     }
-    int bufsize = buf.size();
-    if(bufsize < off) {
-        buf.resize(off,'\0');   
-        buf.append(data, size);
+
+    // replace old data with new data, then write back
+    if ((unsigned)off >= content.size()) {
+        content.resize(off, '\0');
+        content.append(data, size);
     } else {
-        if(bufsize < off + (int)size) {
-            buf.resize(off);
-            buf.append(data,size);
-        } else
-            buf.replace(off, size, std::string(data,size));     
+        content.replace(off,
+                        off + size <= content.size() ? size : content.size() - off,
+                        data,
+                        size);
     }
-    bytes_written = size;
-    ec->put(ino, buf);
+
+    if (ec->put(ino, content) != extent_protocol::OK) {
+        printf("write: fail to write file\n");
+        return IOERR;
+    }
     return r;
 }
 
