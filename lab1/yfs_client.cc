@@ -134,7 +134,8 @@ yfs_client::setattr(inum ino, size_t size)
     return r;
 }
 
-int yfs_client::writedir(inum dir, std::list<dirent> &entries) // Write the directory entry table.
+int 
+yfs_client::writedir(inum dir, std::list<dirent> &entries) // Write the directory entry table.
 {
     int r = OK;
 
@@ -181,9 +182,6 @@ yfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
             entry.inum = inum;
             entries.push_back(entry);
             r = writedir(parent, entries);
-
-        release:
-
             return r;
 
         }else{
