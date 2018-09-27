@@ -31,6 +31,8 @@ class yfs_client {
     yfs_client::inum inum;
   };
 
+  typedef fileinfo slinkinfo;
+
  private:
   static std::string filename(inum);
   static inum n2i(std::string);
