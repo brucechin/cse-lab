@@ -457,6 +457,41 @@ fuseserver_statfs(fuse_req_t req)
     fuse_reply_statfs(req, &buf);
 }
 
+void fuseserver_symlink(fuse_req_t  req,
+                        const char *link,
+                        fuse_ino_t  parent,
+                        const char *name) {
+    struct fuse_entry_param e;
+
+    e.attr_timeout  = 0.0;
+    e.entry_timeout = 0.0;
+    e.generation    = 0;
+
+    int r;
+
+    yfs_client::inum inum;
+
+    if ((r = yfs->symlink(parent, link, name, inum)) == yfs_client::OK) {
+        e.ino = inum;
+        getattr(inum, e.attr);
+        fuse_reply_entry(req, &e);
+    } else {
+        fuse_reply_err(req, r);
+    }
+}
+
+void fuseserver_readlink(fuse_req_t req, fuse_ino_t ino) {
+    int r;
+
+    std::string path;
+
+    if ((r = yfs->readslink(ino, path)) == yfs_client::OK) {
+        fuse_reply_readlink(req, path.c_str());
+    } else {
+        fuse_reply_err(req, r);
+    }
+}
+
 struct fuse_lowlevel_ops fuseserver_oper;
 
 int

@@ -56,6 +56,9 @@ class yfs_client {
   int writedir(inum dir, std::list<dirent>& entries);
   bool add_entry_and_save(inum parent, const char *name, inum inum);
   bool has_duplicate(inum parent, const char *name);
+
+  int symlink(inum, const char *, const char *, inum&);
+  int readslink(inum, std::string&);
   /** you may need to add symbolic link related methods here.*/
 };
 

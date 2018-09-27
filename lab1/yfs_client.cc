@@ -454,3 +454,46 @@ int yfs_client::unlink(inum parent, const char *name) {
     return OK;
 }
 
+int yfs_client::symlink(inum parent, const char *link, const char *name, inum& ino_out) {
+    // keep off invalid input
+    if (parent <= 0) {
+        printf("symlink: invalid inode number %llu\n", parent);
+        return IOERR;
+    }
+
+    // create file first
+    if (ec->create(extent_protocol::T_SLINK, ino_out) != extent_protocol::OK) {
+        printf("symlink: fail to create directory\n");
+        return IOERR;
+    }
+
+    // write path to file
+    if (ec->put(ino_out, link) != extent_protocol::OK) {
+        printf("symlink: fail to write link\n");
+        return IOERR;
+    }
+
+    // add entry to directory
+    if (add_entry_and_save(parent, name, ino_out) == false) {
+        printf("symlink: fail to add entry\n");
+        return IOERR;
+    }
+
+    return OK;
+}
+
+int yfs_client::readslink(inum ino, std::string& path) {
+    // keep off invalid input
+    if (ino <= 0) {
+        printf("readslink: invalid inode number %llu\n", ino);
+        return IOERR;
+    }
+
+    // read path
+    if (ec->get(ino, path) != extent_protocol::OK) {
+        printf("readslink: fail to read path\n");
+        return IOERR;
+    }
+
+    return OK;
+}
