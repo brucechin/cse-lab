@@ -115,7 +115,7 @@ block_manager::block_manager()
       while (mask > 0 && cur < ending) {
         buf[i] = buf[i] | mask;
         mask = mask >> 1;
-        cur++;
+        ++cur;
       }
     }
     write_block(BBLOCK(cur - 1), buf);
@@ -163,7 +163,9 @@ inode_manager::alloc_inode(uint32_t type)
    * the 1st is used for root_dir, see inode_manager::inode_manager().
    */
 
-
+ if (type == 0) {
+        return 0;
+    }
 
     struct inode *ino;
     char buf[BLOCK_SIZE];
