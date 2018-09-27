@@ -233,10 +233,37 @@ bool yfs_client::add_entry_and_save(inum parent, const char *name, inum inum) {
     return true;
 }
 
+bool yfs_client::has_duplicate(inum parent, const char *name) {
+    bool exist;
+    inum old_inum;
+
+    if (lookup(parent, name, exist, old_inum) != extent_protocol::OK) {
+        printf("has_duplicate: fail to perform lookup\n");
+
+        return true; // use true to forbid further action
+    }
+    return exist;
+}
+
 int
 yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
 {
-    create(parent, name, mode, ino_out);
+    if (has_duplicate(parent, name)) {
+        return EXIST;
+    }
+
+    // create file first
+    if (ec->create(extent_protocol::T_DIR, ino_out) != extent_protocol::OK) {
+        printf("create: fail to create directory\n");
+        return IOERR;
+    }
+
+    // write back
+    if (add_entry_and_save(parent, name, ino_out) == false) {
+        return IOERR;
+    }
+
+    return OK;
 }
 
 int
