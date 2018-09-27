@@ -405,7 +405,7 @@ void inode_manager::write_file(uint32_t inum, const char *buf, int size) {
 
   if (cur < size) {
     bm->read_block(ino->blocks[NDIRECT], indirect);
-    for (unsigned int i = 0; i < NINDIRECT && cur < size; ++i) {
+    for (unsigned int i = 0; i < BLOCK_SIZE / sizeof(int) && cur < size; ++i) {
       blockid_t ix = indirect[i];
       if (size - cur > BLOCK_SIZE) {
         bm->write_block(ix, buf + cur);
