@@ -275,183 +275,244 @@ inode_manager::put_inode(uint32_t inum, struct inode *ino)
 
 /* Get all the data of a file by inum. 
  * Return alloced data, should be freed by caller. */
-void
-inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
-{
-  /*
-   * your code goes here.
-   * note: read blocks related to inode number inum,
-   * and copy them to buf_Out
-   */
-  
-  if(inum <= 0 || inum > INODE_NUM || buf_out == NULL || size == NULL) return;
-  
-  struct inode* inode = get_inode(inum);
-
-  if(inode == NULL){
-    printf("read_file: inode not found %d\n",inum);
-    return;
-  }
-  
-  char* buf = (char*)malloc(inode->size);// read all buffer
-  char block[BLOCK_SIZE];
-
-  unsigned int cur = 0;
-  for (int i = 0; i < NDIRECT && cur < inode->size; ++i) {
-    if (inode->size - cur > BLOCK_SIZE) {
-      bm->read_block(inode->blocks[i], buf + cur);
-      cur += BLOCK_SIZE;
-    } else {// less than one full block to read
-      int len = inode->size - cur;
-      bm->read_block(inode->blocks[i], block);
-      memcpy(buf + cur, block, len);
-      cur += len;
+void inode_manager::read_file(uint32_t inum, char **buf_out, int *size) {
+    // invalid input
+    if ((inum <= 0) || (inum > INODE_NUM)) {
+        printf("read_file: inum out of range: %d\n", inum);
+        return;
     }
-  }
 
-  if (cur < inode->size) { //need read from indirect blocks
-    char indirect[BLOCK_SIZE];
-    bm->read_block(inode->blocks[NDIRECT], indirect);
-    for (unsigned int i = 0; i < NDIRECT && cur < inode->size; i++) {
-      blockid_t ix = *((blockid_t *)indirect + i);//get the i-th indirect block id
-      if (inode->size - cur > BLOCK_SIZE) {//read full block
-        bm->read_block(ix, buf + cur);
-        cur += BLOCK_SIZE;
-      } else {
-        int len = inode->size - cur;
-        bm->read_block(ix, block);
-        memcpy(buf + cur, block, len);
-        cur += len;
-      }
+    if (buf_out == NULL) {
+        printf("read_file: buf_out pointer is NULL\n");
+        return;
     }
-  }
 
-  
-  unsigned int now = (unsigned int)time(NULL);
-  inode->atime = now;
-  inode->ctime = now;
-  *buf_out = buf;
-  *size = inode->size;
-  put_inode(inum, inode);
-  free(inode);
-  return;
+    if (size == NULL) {
+        printf("read_file: size pointer is NULL\n");
+        return;
+    }
+
+    // get inode
+    struct inode *ino = get_inode(inum);
+
+    if (ino == NULL) {
+        printf("read_file: inode not exist: %d\n", inum);
+        return;
+    }
+
+    // alocate memory for reading
+    *buf_out = (char *)malloc(ino->size);
+
+    char block_buf[BLOCK_SIZE];
+    blockid_t indirect_block_buf[BLOCK_SIZE / sizeof(blockid_t)];
+    int block_num = (ino->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+    // read direct entry
+    for (int i = 0; i < (block_num > NDIRECT ? NDIRECT : block_num); i++) {
+        bm->read_block(ino->blocks[i], block_buf);
+
+        if (i == block_num - 1) { // only copy partial data from last block
+            memcpy(*buf_out + i * BLOCK_SIZE,
+                   block_buf,
+                   ino->size - i * BLOCK_SIZE);
+        } else {
+            memcpy(*buf_out + i * BLOCK_SIZE, block_buf, BLOCK_SIZE);
+        }
+    }
+
+    // read indirect entry, if needed
+    if (block_num > NDIRECT) {
+        bm->read_block(ino->blocks[NDIRECT], (char *)indirect_block_buf);
+
+        for (int i = 0; i < block_num - NDIRECT; i++) {
+            bm->read_block(indirect_block_buf[i], block_buf);
+
+            if (i == block_num - NDIRECT - 1) { // only copy partial data from
+                                                // last block
+                memcpy(*buf_out + (i + NDIRECT) * BLOCK_SIZE,
+                       block_buf,
+                       ino->size - (i + NDIRECT) * BLOCK_SIZE);
+            } else {
+                memcpy(*buf_out + (i + NDIRECT) * BLOCK_SIZE,
+                       block_buf,
+                       BLOCK_SIZE);
+            }
+        }
+    }
+
+    // report file size
+    *size = ino->size;
+
+    // update atime
+    unsigned int now = (unsigned int)time(NULL);
+    ino->atime = now;
+    put_inode(inum, ino);
+    free(ino);
 }
 
 /* alloc/free blocks if needed */
-void
-inode_manager::write_file(uint32_t inum, const char *buf, int size)
-{
-  /*
-   * your code goes here.
-   * note: write buf to blocks of inode inum.
-   * you need to consider the situation when the size of buf 
-   * is larger or smaller than the size of original inode
-   */
-
-  if(inum <= 0 || inum > INODE_NUM || buf == NULL || size < 0) return;
-
-  struct inode* inode = get_inode(inum);
-
-  if(inode == NULL){
-    printf("write_file: inode not found %d\n",inum);
-    return;
-  }
-  
-  char block[BLOCK_SIZE];
-  char indirect[BLOCK_SIZE];
-  unsigned int old_block_num = (inode->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
-  unsigned int new_block_num = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
-  
-  if (old_block_num > new_block_num) {//free extra blocks
-    if (new_block_num > NDIRECT) {
-      bm->read_block(inode->blocks[NDIRECT], (char*)indirect);
-      for (unsigned int i = new_block_num; i < old_block_num; ++i) {
-        bm->free_block(indirect[i - NDIRECT]);
-      }
-    } else {
-      if (old_block_num > NDIRECT) {
-        bm->read_block(inode->blocks[NDIRECT], (char*)indirect);
-        for (unsigned int i = NDIRECT; i < old_block_num; ++i) {
-          bm->free_block(indirect[i - NDIRECT]);
-        }
-        bm->free_block(inode->blocks[NDIRECT]);
-        for (unsigned int i = new_block_num; i < NDIRECT; ++i) {
-          bm->free_block(inode->blocks[i]);
-        }
-      } else {
-        for (unsigned int i = new_block_num; i < old_block_num; ++i) {
-          bm->free_block(inode->blocks[i]);
-        }
-      }
+void inode_manager::write_file(uint32_t inum, const char *buf, int size) {
+    // invalid input
+    if ((inum <= 0) || (inum > INODE_NUM)) {
+        printf("write_file: inum out of range: %d\n", inum);
+        return;
     }
-  }
 
-  if (new_block_num > old_block_num) { // need allocate more blocks for new file
-    if (new_block_num <= NDIRECT) {
-      for (unsigned int i = old_block_num; i < new_block_num; ++i) {
-        inode->blocks[i] = bm->alloc_block();
-      }
-    } else {
-      if (old_block_num <= NDIRECT) {
-        for (unsigned int i = old_block_num; i < NDIRECT; ++i) {
-          inode->blocks[i] = bm->alloc_block();
-        }
-        inode->blocks[NDIRECT] = bm->alloc_block();
-
-        bzero(indirect, BLOCK_SIZE);
-        for (unsigned int i = NDIRECT; i < new_block_num; ++i) {
-          indirect[i - NDIRECT] = bm->alloc_block();
-        }
-        bm->write_block(inode->blocks[NDIRECT], indirect);
-      } else {
-        bm->read_block(inode->blocks[NDIRECT], indirect);
-        for (unsigned int i = old_block_num; i < new_block_num; ++i) {
-          indirect[i - NDIRECT] = bm->alloc_block();
-        }
-        bm->write_block(inode->blocks[NDIRECT], indirect);
-      }
+    if (buf == NULL) {
+        printf("write_file: buf pointer is NULL\n");
+        return;
     }
-  }
 
-  int cur = 0;
-  for (int i = 0; i < NDIRECT && cur < size; ++i) { // similar to read file part
-    if (size - cur > BLOCK_SIZE) {
-      bm->write_block(inode->blocks[i], buf + cur);
-      cur += BLOCK_SIZE;
-    } else {
-      int len = size - cur;
-      memcpy(block, buf + cur, len);
-      bm->write_block(inode->blocks[i], block);
-      cur += len;
+    if ((size < 0) || ((unsigned)size > MAXFILESIZE)) {
+        printf("write_file: size out of range %d\n", size);
+        return;
     }
-  }
 
-  if (cur < size) {// indirect write
-    bm->read_block(inode->blocks[NDIRECT], indirect);
-    for (unsigned int i = 0; i < NDIRECT && cur < size; ++i) {
-      blockid_t ix = indirect[i];
-      if (size - cur > BLOCK_SIZE) {
-        bm->write_block(ix, buf + cur);
-        cur += BLOCK_SIZE;
-      } else {
-        int len = size - cur;
-        memcpy(block, buf + cur, len);
-        bm->write_block(ix, block);
-        cur += len;
-      }
+    // get block containing inode inum
+    struct inode *ino = get_inode(inum);
+
+    // invalid (empty) inode
+    if (ino->type == 0) { // find an empty inode
+        printf("write_file: inode not exist: %d\n", inum);
+        return;
     }
-  }
-  
-  unsigned int now = (unsigned int)time(NULL);
-  inode->ctime = now;
-  inode->mtime = now;
-  inode->size = size;
-  put_inode(inum,inode);
-  free(inode);
-   
-  return;
+
+    // prepare to write
+    blockid_t indirect_block_buf[BLOCK_SIZE / sizeof(blockid_t)];
+    int block_num_old = (ino->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    int block_num_new = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+    if (block_num_new <= block_num_old) { // write a smaller file
+        // write to old direct block
+        for (int i = 0; i < (block_num_new > NDIRECT ? NDIRECT : block_num_new);
+             i++) {
+            if (i == block_num_new - 1) { // add zero padding when writing the
+                                          // last block
+                char padding[BLOCK_SIZE];
+                bzero(padding, BLOCK_SIZE);
+                memcpy(padding, buf + i * BLOCK_SIZE, size - i * BLOCK_SIZE);
+                bm->write_block(ino->blocks[i], padding);
+            } else {
+                bm->write_block(ino->blocks[i], buf + i * BLOCK_SIZE);
+            }
+        }
+
+        // read indirect block entry, if needed
+        if (block_num_new > NDIRECT) {
+            bm->read_block(ino->blocks[NDIRECT], (char *)indirect_block_buf);
+
+            // write to old indirect block, if needed
+            for (int i = 0; i < block_num_new - NDIRECT; i++) {
+                if (i == block_num_new - NDIRECT - 1) { // add zero padding when
+                                                        // writing the last
+                                                        // block
+                    char padding[BLOCK_SIZE];
+                    bzero(padding, BLOCK_SIZE);
+                    memcpy(padding, buf + (i + NDIRECT) * BLOCK_SIZE,
+                           size - (i + NDIRECT) * BLOCK_SIZE);
+                    bm->write_block(indirect_block_buf[i], padding);
+                } else {
+                    bm->write_block(indirect_block_buf[i],
+                                    buf + (i + NDIRECT) * BLOCK_SIZE);
+                }
+            }
+        }
+
+        // free unused direct blocks, if any
+        for (int i = block_num_new;
+             i < (block_num_old > NDIRECT ? NDIRECT : block_num_old); i++) {
+            bm->free_block(ino->blocks[i]);
+        }
+
+        // free unused indirect blocks, if any
+        if (block_num_old > NDIRECT) {
+            for (int i = (block_num_new > NDIRECT ? block_num_new - NDIRECT : 0);
+                 i < block_num_old - NDIRECT; i++) {
+                bm->free_block(indirect_block_buf[i]);
+            }
+
+            // free indirect entry, if needed
+            if (block_num_new <= NDIRECT) {
+                bm->free_block(ino->blocks[NDIRECT]);
+            }
+        }
+    } else { // write a bigger file
+        // write to old direct blocks
+        for (int i = 0; i < (block_num_old > NDIRECT ? NDIRECT : block_num_old);
+             i++) {
+            bm->write_block(ino->blocks[i], buf + i * BLOCK_SIZE);
+        }
+
+        // alloc and write to remaining direct blocks, if any
+        for (int i = block_num_old;
+             i < (block_num_new > NDIRECT ? NDIRECT : block_num_new); i++) {
+            uint32_t bnum = bm->alloc_block();
+            ino->blocks[i] = bnum;
+
+            if (i == block_num_new - 1) { // add zero padding when writing the
+                                          // last block
+                char padding[BLOCK_SIZE];
+                bzero(padding, BLOCK_SIZE);
+                memcpy(padding, buf + i * BLOCK_SIZE, size - i * BLOCK_SIZE);
+                bm->write_block(ino->blocks[i], padding);
+            } else {
+                bm->write_block(ino->blocks[i], buf + i * BLOCK_SIZE);
+            }
+        }
+
+        // read indirect entry, alloc first if needed
+        if (block_num_new > NDIRECT) {
+            if (block_num_old <= NDIRECT) {
+                uint32_t bnum = bm->alloc_block();
+                ino->blocks[NDIRECT] = bnum;
+            } else {
+                bm->read_block(ino->blocks[NDIRECT], (char *)indirect_block_buf);
+            }
+
+            // write to old indirect blocks, if any
+            for (int i = 0;
+                 i < (block_num_old > NDIRECT ? block_num_old - NDIRECT : 0);
+                 i++) {
+                bm->write_block(indirect_block_buf[i],
+                                buf + (i + NDIRECT) * BLOCK_SIZE);
+            }
+
+            // alloc and write to remaining indirect block, if needed
+            for (int i = (block_num_old > NDIRECT ? block_num_old - NDIRECT : 0);
+                 i < block_num_new - NDIRECT; i++) {
+                uint32_t bnum = bm->alloc_block();
+                indirect_block_buf[i] = bnum;
+
+                if (i == block_num_new - NDIRECT - 1) { // add zero padding when
+                                                        // writing the last
+                                                        // block
+                    char padding[BLOCK_SIZE];
+                    bzero(padding, BLOCK_SIZE);
+                    memcpy(padding, buf + (i + NDIRECT) * BLOCK_SIZE,
+                           size - (i + NDIRECT) * BLOCK_SIZE);
+                    bm->write_block(indirect_block_buf[i], padding);
+                } else {
+                    bm->write_block(indirect_block_buf[i],
+                                    buf + (i + NDIRECT) * BLOCK_SIZE);
+                }
+            }
+
+            // save indirect block entry, if needed
+            if (block_num_new > NDIRECT) {
+                bm->write_block(ino->blocks[NDIRECT], (char *)indirect_block_buf);
+            }
+        }
+    }
+
+    // update size and mtime
+    unsigned int now = (unsigned int)time(NULL);
+    ino->size  = size;
+    ino->mtime = now;
+    ino->ctime = now;
+    put_inode(inum, ino);
+    free(ino);
 }
+
 
 void
 inode_manager::getattr(uint32_t inum, extent_protocol::attr &a)
