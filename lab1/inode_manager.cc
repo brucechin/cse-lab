@@ -30,9 +30,6 @@ disk::write_block(blockid_t id, const char *buf)
 
 // Allocate a free disk block.
 blockid_t block_manager::alloc_block() {
-    if (VERBOSE) {
-        printf("alloc_block: try to allocate free block\n");
-    }
 
     char bitmap[BLOCK_SIZE];
     int  bitmap_bnum, pos;
@@ -68,9 +65,6 @@ blockid_t block_manager::alloc_block() {
     if (free_block_found) {
         blockid_t bnum = (bitmap_bnum - BBLOCK(1)) * BPB + pos + 1;
 
-        if (VERBOSE) {
-            printf("alloc_block: bnum of allocated block: %d\n", bnum);
-        }
         return bnum;
     } else {
         printf("alloc_block: no empty block available\n");
@@ -104,31 +98,38 @@ block_manager::block_manager()
 {
   d = new disk();
 
-  // format the disk
-  sb.size = BLOCK_SIZE * BLOCK_NUM;
-  sb.nblocks = BLOCK_NUM;
-  sb.ninodes = INODE_NUM;
+    // format the disk
+    sb.size    = BLOCK_SIZE * BLOCK_NUM;
+    sb.nblocks = BLOCK_NUM;
+    sb.ninodes = INODE_NUM;
 
-  /* mark bootblock, superblock, bitmap, inode table region as used */
-  char buf[BLOCK_SIZE];
-  blockid_t cur = 0;
-  blockid_t ending = (2 + ((sb.nblocks) + BPB - 1)/BPB + ((sb.ninodes) + IPB - 1)/IPB);
-  while (cur < ending) {
-    read_block(BBLOCK(cur), buf);
-    for (int i = 0; i < BLOCK_SIZE && cur < ending; ++i) {
-      unsigned char mask = 0x80;
-      while (mask > 0 && cur < ending) {
-        buf[i] = buf[i] | mask;
-        mask = mask >> 1;
-        ++cur;
-      }
+    // mark superblock, bitmap, inode table as used
+    char buf[BLOCK_SIZE];
+    memset(buf, ~0, BLOCK_SIZE);
+    int last_bnum = IBLOCK(INODE_NUM, sb.nblocks);
+
+    // blocks in bitmap to be filled with all ones
+    for (int bitmap_bnum = BBLOCK(1); bitmap_bnum < BBLOCK(last_bnum);
+         bitmap_bnum++) {
+        d->write_block(bitmap_bnum, buf);
     }
-    write_block(BBLOCK(cur - 1), buf);
-  }
 
-  bzero(buf, sizeof(buf));
-  memcpy(buf, &sb, sizeof(sb));
-  write_block(1, buf);
+    // the last block in bitmap to partially fill with ones
+    // set whole bytes to ones
+    memset(buf, 0,  BLOCK_SIZE);
+    int remaining_bits_num = last_bnum - (BBLOCK(last_bnum) - BBLOCK(1)) * BPB;
+    memset(buf, ~0, remaining_bits_num / 8);
+
+    // set trailing bits to ones
+    char last_byte = 0;
+
+    for (int pos = 0; pos < remaining_bits_num % 8; ++pos) {
+        last_byte = last_byte | ((char)1 << (7 - pos));
+    }
+    buf[remaining_bits_num / 8] = last_byte;
+
+    // write last block
+    d->write_block(BBLOCK(last_bnum), buf);
 
 
 }
