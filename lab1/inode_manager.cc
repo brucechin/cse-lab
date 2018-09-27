@@ -296,11 +296,11 @@ inode_manager::read_file(uint32_t inum, char **buf_out, int *size)
     char indirect[BLOCK_SIZE];
     bm->read_block(ino->blocks[NDIRECT], indirect);
     for (unsigned int i = 0; i < NDIRECT && cur < ino->size; ++i) {
-      blockid_t ix = indirect[i];
+      blockid_t ix = *((blockid_t *)indirect + i);
       if (ino->size - cur > BLOCK_SIZE) {//read full block
         bm->read_block(ix, buf + cur);
         cur += BLOCK_SIZE;
-      } else {//read left
+      } else {
         int len = ino->size - cur;
         bm->read_block(ix, block);
         memcpy(buf + cur, block, len);
@@ -340,13 +340,13 @@ void inode_manager::write_file(uint32_t inum, const char *buf, int size) {
     if (new_block_num > NDIRECT) {
       bm->read_block(ino->blocks[NDIRECT], indirect);
       for (unsigned int i = new_block_num; i < old_block_num; ++i) {
-        bm->free_block(indirect[i - NDIRECT]);
+        bm->free_block(*((blockid_t *)indirect + (i - NDIRECT)));
       }
     } else {
       if (old_block_num > NDIRECT) {
         bm->read_block(ino->blocks[NDIRECT], indirect);
         for (unsigned int i = NDIRECT; i < old_block_num; ++i) {
-          bm->free_block(indirect[i - NDIRECT]);
+          bm->free_block(*((blockid_t *)indirect + (i - NDIRECT)));
         }
         bm->free_block(ino->blocks[NDIRECT]);
         for (unsigned int i = new_block_num; i < NDIRECT; ++i) {
@@ -375,13 +375,13 @@ void inode_manager::write_file(uint32_t inum, const char *buf, int size) {
 
         bzero(indirect, BLOCK_SIZE);
         for (unsigned int i = NDIRECT; i < new_block_num; ++i) {
-          indirect[i - NDIRECT] = bm->alloc_block();
+          *((blockid_t *)indirect + (i - NDIRECT)) = bm->alloc_block();
         }
         bm->write_block(ino->blocks[NDIRECT], indirect);
       } else {
         bm->read_block(ino->blocks[NDIRECT], indirect);
         for (unsigned int i = old_block_num; i < new_block_num; ++i) {
-          indirect[i - NDIRECT] = bm->alloc_block();
+          *((blockid_t *)indirect + (i - NDIRECT)) = bm->alloc_block();
         }
         bm->write_block(ino->blocks[NDIRECT], indirect);
       }
@@ -405,8 +405,8 @@ void inode_manager::write_file(uint32_t inum, const char *buf, int size) {
 
   if (cur < size) {
     bm->read_block(ino->blocks[NDIRECT], indirect);
-    for (unsigned int i = 0; i < NINDIRECT && cur < size; ++i) {
-      blockid_t ix = indirect[i];
+    for (unsigned int i = 0; i < NDIRECT && cur < size; ++i) {
+      blockid_t ix = *((blockid_t *)indirect + i);
       if (size - cur > BLOCK_SIZE) {
         bm->write_block(ix, buf + cur);
         cur += BLOCK_SIZE;
