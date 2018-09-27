@@ -463,26 +463,25 @@ inode_manager::remove_file(uint32_t inum)
     if ((inum <= 0) || (inum > INODE_NUM)) {
         return;
     }
-    struct inode *inode = get_inode(inum);
+   inode_t * ino = get_inode(inum);
+    unsigned int block_num = (ino->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    if (block_num <= NDIRECT) {
+      for (unsigned int i = 0; i < block_num; ++i) {
+        bm->free_block(ino->blocks[i]);
+      }
+    } else {
+      for (int i = 0; i < NDIRECT; ++i) {
+        bm->free_block(ino->blocks[i]);
+      }
+      char indirect[BLOCK_SIZE];
+      bm->read_block(ino->blocks[NDIRECT], indirect);
+      for (unsigned int i = 0; i < block_num - NDIRECT; ++i) {
+        bm->free_block(*((blockid_t *)indirect + i));
+      }
+      bm->free_block(ino->blocks[NDIRECT]);
+    }
     free_inode(inum);
-    int block_num = (inode->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
-    // free direct entry
-    for (int i = 0; i < (block_num > NDIRECT ? NDIRECT : block_num); i++) {
-        bm->free_block(inode->blocks[i]);
-    }
-
-    // free indirect entry, if any
-    if (block_num > NDIRECT) {
-        blockid_t indirect[BLOCK_SIZE / sizeof(blockid_t)];
-        bm->read_block(inode->blocks[NDIRECT], (char *)indirect);
-
-        for (int i = 0; i < block_num - NDIRECT; i++) {
-            bm->free_block(indirect[i]);
-        }
-    }
-
-    free(inode);
+    free(ino);
   
   return;
 }
