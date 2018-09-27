@@ -451,31 +451,6 @@ inode_manager::getattr(uint32_t inum, extent_protocol::attr &a)
 }
 
 
-void
-inode_manager::getattr(uint32_t inum, extent_protocol::attr &a)
-{
-  /*
-   * your code goes here.
-   * note: get the attributes of inode inum.
-   * you can refer to "struct attr" in extent_protocol.h
-   */
-
-  if ((inum <= 0) || (inum > INODE_NUM)) return;
-
-  struct inode* inode = get_inode(inum);
-
-  if(inode == NULL) return;
-
-  a.type  = inode->type;
-  a.atime = inode->atime;
-  a.mtime = inode->mtime;
-  a.ctime = inode->ctime;
-  a.size  = inode->size;
-
-  free(inode);
-  
-  
-}
 
 void
 inode_manager::remove_file(uint32_t inum)
