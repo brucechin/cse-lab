@@ -8,7 +8,7 @@
 
 lock_server::lock_server()
     : nacquire (0) {
-    pthread_mutex_init(&mutex, NULL);
+    pthread_mutex_init(&map_mutex, NULL);
 }
 
 lock_protocol::status lock_server::stat(int clt, lock_protocol::lockid_t lid, int &r) {
