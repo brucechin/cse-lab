@@ -10,34 +10,20 @@ disk::disk()
 void
 disk::read_block(blockid_t id, char *buf)
 {
-<<<<<<< HEAD
-  if (id < 0 || id >= BLOCK_NUM || buf == NULL)
-    return;
-
-  memcpy(buf, blocks[id], BLOCK_SIZE);
-=======
   if(id > BLOCK_NUM || id < 0 || buf == NULL){ 
     return;
   }
 
   memcpy(buf, blocks[id - 1], BLOCK_SIZE); 
->>>>>>> lab1
 }
 
 void
 disk::write_block(blockid_t id, const char *buf)
 {
-<<<<<<< HEAD
-  if (id < 0 || id >= BLOCK_NUM || buf == NULL)
-    return;
-
-  memcpy(blocks[id], buf, BLOCK_SIZE);
-=======
   if (id <= 0 || id > BLOCK_NUM || buf == NULL) {
       return;
     }
     memcpy(blocks[id - 1], buf, BLOCK_SIZE);
->>>>>>> lab1
 }
 
 // block layer -----------------------------------------
