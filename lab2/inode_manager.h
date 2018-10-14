@@ -1,14 +1,12 @@
-// inode layer interface.
-
 #ifndef inode_h
 #define inode_h
 
 #include <stdint.h>
-#include "extent_protocol.h" // TODO: delete it
+#include "extent_protocol.h"
 
-#define DISK_SIZE  1024*1024*16
+#define DISK_SIZE  1024 * 1024 * 16
 #define BLOCK_SIZE 512
-#define BLOCK_NUM  (DISK_SIZE/BLOCK_SIZE)
+#define BLOCK_NUM  (DISK_SIZE / BLOCK_SIZE)
 
 typedef uint32_t blockid_t;
 
@@ -78,7 +76,6 @@ public:
 #define NDIRECT 32
 #define NINDIRECT (BLOCK_SIZE / sizeof(uint))
 #define MAXFILE (NDIRECT + NINDIRECT)
-#define MAXFILESIZE ((NDIRECT - 1 + NINDIRECT) * BLOCK_SIZE)
 
 typedef struct inode {
     // short type;
