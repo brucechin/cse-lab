@@ -8,6 +8,7 @@
 
 lock_server::lock_server():
   nacquire (0)
+  pthread_mutex_init(&mutex, NULL);
 {
 }
 
