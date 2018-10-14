@@ -78,6 +78,7 @@ public:
 #define NDIRECT 32
 #define NINDIRECT (BLOCK_SIZE / sizeof(uint))
 #define MAXFILE (NDIRECT + NINDIRECT)
+#define MAXFILESIZE ((NDIRECT - 1 + NINDIRECT) * BLOCK_SIZE)
 
 typedef struct inode {
     // short type;
