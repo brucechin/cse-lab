@@ -1,4 +1,4 @@
-LAB=2
+LAB=4
 SOL=0
 RPC=./rpc
 LAB1GE=$(shell expr $(LAB) \>\= 1)
@@ -24,7 +24,7 @@ else
   MACFLAGS=
 endif
 LDFLAGS = -L. -L/usr/local/lib
-LDLIBS = -lpthread 
+LDLIBS = -lpthread
 ifeq ($(LAB1GE),1)
   ifeq ($(shell uname -s),Darwin)
     ifeq ($(shell sw_vers -productVersion | sed -e "s/.*\(10\.[0-9]\).*/\1/"),10.6)
@@ -42,11 +42,13 @@ CC = g++
 CXX = g++
 
 lab:  lab$(LAB)
-lab1: lab1_tester yfs_client 
-lab2: lock_server lock_tester lock_demo yfs_client extent_server test-lab2-part1-g test-lab2-part2-a test-lab2-part2-b
-lab5: yfs_client extent_server lock_server lock_tester test-lab2-part2-b\
-	 test-lab2-part2-c
-lab6: yfs_client extent_server lock_server test-lab2-part2-b test-lab2-part2-c
+lab1: lab1_tester
+lab2: yfs_client
+lab3: yfs_client extent_server test-lab-3-g
+lab4: lock_server lock_tester lock_demo yfs_client extent_server test-lab-4-a test-lab-4-b
+lab5: yfs_client extent_server lock_server lock_tester test-lab-4-b\
+	 test-lab-4-c
+lab6: yfs_client extent_server lock_server test-lab-4-b test-lab-4-c
 lab7: lock_server rsm_tester
 lab8: lock_tester lock_server rsm_tester
 
@@ -88,10 +90,10 @@ endif
 
 lock_server : $(patsubst %.cc,%.o,$(lock_server)) rpc/$(RPCLIB)
 
-part1_tester=part1_tester.cc extent_client.cc extent_server.cc inode_manager.cc
-part1_tester : $(patsubst %.cc,%.o,$(part1_tester))
+lab1_tester=lab1_tester.cc extent_client.cc extent_server.cc inode_manager.cc
+lab1_tester : $(patsubst %.cc,%.o,$(lab1_tester))
 yfs_client=yfs_client.cc extent_client.cc fuse.cc extent_server.cc inode_manager.cc
-ifeq ($(LAB2GE),1)
+ifeq ($(LAB3GE),1)
   yfs_client += lock_client.cc
 endif
 ifeq ($(LAB7GE),1)
@@ -105,11 +107,11 @@ yfs_client : $(patsubst %.cc,%.o,$(yfs_client)) rpc/$(RPCLIB)
 extent_server=extent_server.cc extent_smain.cc inode_manager.cc
 extent_server : $(patsubst %.cc,%.o,$(extent_server)) rpc/$(RPCLIB)
 
-test-lab2-part1-b=test-lab2-part1-b.c
-test-lab2-part1-b:  $(patsubst %.c,%.o,$(test-lab2-part1-b)) rpc/$(RPCLIB)
+test-lab-3-b=test-lab-3-b.c
+test-lab-3-b:  $(patsubst %.c,%.o,$(test_lab_4-b)) rpc/$(RPCLIB)
 
-test-lab2-part1-c=test-lab2-part1-c.c
-test-lab2-part2-c:  $(patsubst %.c,%.o,$(test-lab2-part1-c)) rpc/$(RPCLIB)
+test-lab-3-c=test-lab-3-c.c
+test-lab-4-c:  $(patsubst %.c,%.o,$(test_lab_4-c)) rpc/$(RPCLIB)
 
 rsm_tester=rsm_tester.cc rsmtest_client.cc
 rsm_tester:  $(patsubst %.cc,%.o,$(rsm_tester)) rpc/$(RPCLIB)
@@ -126,23 +128,15 @@ fuse.o: fuse.cc
 -include *.d
 -include rpc/*.d
 
-clean_files=rpc/rpctest rpc/*.o rpc/*.d *.o *.d yfs_client extent_server lock_server lock_tester lock_demo rpctest test-lab2-part1-a test-lab2-part1-b test-lab2-part1-c test-lab2-part1-g test-lab2-part2-a test-lab2-part2-b rsm_tester lab1_tester demo_client demo_server
+clean_files=rpc/rpctest rpc/*.o rpc/*.d *.o *.d yfs_client extent_server lock_server lock_tester lock_demo rpctest test-lab-3-a test-lab-3-b test-lab-3-c test-lab-4-a test-lab-4-b rsm_tester lab1_tester
 .PHONY: clean handin
-clean: 
-	rm $(clean_files) -rf 
+clean:
+	rm $(clean_files) -rf
 
 handin_ignore=$(clean_files) core* *log
 handin_file=lab$(LAB).tgz
 labdir=$(shell basename $(PWD))
-handin: 
+handin:
 	@bash -c "cd ../; tar -X <(tr ' ' '\n' < <(echo '$(handin_ignore)')) -czvf $(handin_file) $(labdir); mv $(handin_file) $(labdir); cd $(labdir)"
-	@echo Please modify lab2.tgz to lab2_[your student id].tgz and upload it to ftp://SJTU.Ticholas.Huang:public@public.sjtu.edu.cn/upload/lab2
+	@echo Please modify lab4.tgz to lab4_[your student id].tgz and upload it to ftp://xiaodi:public@public.sjtu.edu.cn/upload/lab4
 	@echo Thanks!
-
-rpcdemo: demo_server demo_client
-
-demo_client:
-	$(CXX) $(CXXFLAGS) demo_client.cc rpc/$(RPCLIB) $(LDFLAGS) $(LDLIBS) -o demo_client
-
-demo_server:
-	$(CXX) $(CXXFLAGS) demo_server.cc rpc/$(RPCLIB) $(LDFLAGS) $(LDLIBS) -o demo_server

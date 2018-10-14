@@ -1,3 +1,6 @@
+// this is the lock server
+// the lock client has a similar interface
+
 #ifndef lock_server_h
 #define lock_server_h
 

@@ -1,3 +1,5 @@
+// the lock server implementation
+
 #include "lock_server.h"
 #include <sstream>
 #include <stdio.h>
