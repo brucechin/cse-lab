@@ -2,6 +2,7 @@
 #define yfs_client_h
 
 #include <string>
+#include <set>
 
 #include "lock_protocol.h"
 #include "lock_client.h"
@@ -31,14 +32,38 @@ class yfs_client {
     unsigned long mtime;
     unsigned long ctime;
   };
+  typedef struct fileinfo slinkinfo;
   struct dirent {
     std::string name;
     yfs_client::inum inum;
   };
 
  private:
-  static std::string filename(inum);
-  static inum n2i(std::string);
+  void _acquire(inum);
+  void _release(inum);
+
+  bool _has_duplicate(inum, const char *);
+  bool _add_entry_and_save(inum, const char *, inum);
+
+  bool _isfile(inum);
+  bool _isdir(inum);
+
+  int _getfile(inum, fileinfo &);
+  int _getdir(inum, dirinfo &);
+  int _getslink(inum, slinkinfo&);
+
+  int _setattr(inum, size_t);
+  int _lookup(inum, const char *, bool &, inum &);
+  int _create(inum, const char *, mode_t, inum &);
+  int _writedir(inum, std::list<dirent>&);
+  int _readdir(inum, std::list<dirent> &);
+  int _write(inum, size_t, off_t, const char *, size_t &);
+  int _read(inum, size_t, off_t, std::string &);
+  int _unlink(inum,const char *);
+  int _mkdir(inum , const char *, mode_t , inum &);
+  int _symlink(inum, const char *, const char *, inum&);
+  int _readslink(inum, std::string&);
+  int _rmdir(inum, const char *);
 
  public:
   yfs_client(std::string, std::string);
@@ -48,6 +73,7 @@ class yfs_client {
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
+  int getslink(inum, slinkinfo&);
 
   int setattr(inum, size_t);
   int lookup(inum, const char *, bool &, inum &);
@@ -57,10 +83,10 @@ class yfs_client {
   int read(inum, size_t, off_t, std::string &);
   int unlink(inum,const char *);
   int mkdir(inum , const char *, mode_t , inum &);
-  int writedir(inum dir, std::list<dirent>& entries);
-  bool add_entry_and_save(inum parent, const char *name, inum inum);
-  bool has_duplicate(inum parent, const char *name);
-  /** you may need to add symbolic link related methods here.*/
+  int symlink(inum, const char *, const char *, inum&);
+  int readslink(inum, std::string&);
+  int rmdir(inum, const char *);
+
 };
 
-#endif 
+#endif
