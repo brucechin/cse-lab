@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-LAB=3
-=======
 LAB=4
->>>>>>> lab2
 SOL=0
 RPC=./rpc
 LAB1GE=$(shell expr $(LAB) \>\= 1)
@@ -46,22 +42,12 @@ CC = g++
 CXX = g++
 
 lab:  lab$(LAB)
-<<<<<<< HEAD
 lab1: lab1_tester yfs_client 
 lab2: lock_server lock_tester lock_demo yfs_client extent_server test-lab2-part1-g test-lab2-part2-a test-lab2-part2-b
 lab3: yfs_client extent_server lock_server lock_tester test-lab-3-a    test-lab-3-b
 lab5: yfs_client extent_server lock_server lock_tester test-lab2-part2-b\
 	 test-lab2-part2-c
 lab6: yfs_client extent_server lock_server test-lab2-part2-b test-lab2-part2-c
-=======
-lab1: lab1_tester
-lab2: yfs_client
-lab3: yfs_client extent_server test-lab-3-g
-lab4: lock_server lock_tester lock_demo yfs_client extent_server test-lab-4-a test-lab-4-b
-lab5: yfs_client extent_server lock_server lock_tester test-lab-4-b\
-	 test-lab-4-c
-lab6: yfs_client extent_server lock_server test-lab-4-b test-lab-4-c
->>>>>>> lab2
 lab7: lock_server rsm_tester
 lab8: lock_tester lock_server rsm_tester
 
@@ -141,11 +127,7 @@ fuse.o: fuse.cc
 -include *.d
 -include rpc/*.d
 
-<<<<<<< HEAD
 clean_files=rpc/rpctest rpc/*.o rpc/*.d *.o *.d yfs_client extent_server lock_server lock_tester lock_demo rpctest test-lab2-part1-a test-lab2-part1-b test-lab2-part1-c test-lab2-part1-g test-lab2-part2-a test-lab2-part2-b test-lab-3-a test-lab-3-b rsm_tester lab1_tester demo_client demo_server
-=======
-clean_files=rpc/rpctest rpc/*.o rpc/*.d *.o *.d yfs_client extent_server lock_server lock_tester lock_demo rpctest test-lab-3-a test-lab-3-b test-lab-3-c test-lab-4-a test-lab-4-b rsm_tester lab1_tester
->>>>>>> lab2
 .PHONY: clean handin
 clean:
 	rm $(clean_files) -rf
@@ -155,9 +137,5 @@ handin_file=lab$(LAB).tgz
 labdir=$(shell basename $(PWD))
 handin:
 	@bash -c "cd ../; tar -X <(tr ' ' '\n' < <(echo '$(handin_ignore)')) -czvf $(handin_file) $(labdir); mv $(handin_file) $(labdir); cd $(labdir)"
-<<<<<<< HEAD
 	@echo Please modify lab3.tgz to lab3_[your student id].tgz and upload it to ftp://SJTU.Ticholas.Huang:public@public.sjtu.edu.cn/upload/lab3
-=======
-	@echo Please modify lab4.tgz to lab4_[your student id].tgz and upload it to ftp://xiaodi:public@public.sjtu.edu.cn/upload/lab4
->>>>>>> lab2
 	@echo Thanks!
