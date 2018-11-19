@@ -10,14 +10,12 @@
 
 int lock_client_cache::last_port = 0;
 
-lock_client_cache::lock_client_cache(std::string xdst, 
-				     class lock_release_user *_lu)
+lock_client_cache::lock_client_cache(std::string xdst, class lock_release_user *_lu)
   : lock_client(xdst), lu(_lu)
 {
   srand(time(NULL)^last_port);
   rlock_port = ((rand()%32000) | (0x1 << 10));
   const char *hname;
-  // VERIFY(gethostname(hname, 100) == 0);
   hname = "127.0.0.1";
   std::ostringstream host;
   host << hname << ":" << rlock_port;
@@ -26,7 +24,7 @@ lock_client_cache::lock_client_cache(std::string xdst,
   rpcs *rlsrpc = new rpcs(rlock_port);
   rlsrpc->reg(rlock_protocol::revoke, this, &lock_client_cache::revoke_handler);
   rlsrpc->reg(rlock_protocol::retry, this, &lock_client_cache::retry_handler);
-  VERIFY(pthread_mutex_init(&locks_mutex_, NULL) == 0);
+  pthread_mutex_init(&locks_mutex_, NULL) == 0;
   default_owner_ = pthread_self();
 }
 
@@ -37,7 +35,9 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
 	if (!lock(lid)){
 		locks_[lid].append_++;
 		while(true){
-			if(!lock_should_retry(lid)){
+      bool ret = locks_[lid].retry_;
+	    locks_[lid].retry_ = false;
+			if(!ret){
 				lock_cond_wait(lid, locks_mutex_);
 			}
 			if (lock(lid)){
@@ -72,7 +72,6 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid, int &)
 	lock_status_t status;
 	pthread_mutex_lock(&locks_mutex_);
 	status = locks_[lid].status_;
-//	tprintf("%s got revoke %lld lock is %x or has appending %d\lock_has_appending(lid)n", id.c_str(), lid, status, locks_[lid].append_);
 	if (status == FREE && !(locks_[lid].append_ > 0)){
 //		tprintf("%s got revoke %lld lock is free \n", id.c_str(), lid);
 		ret = rlock_protocol::OK_FREE;
@@ -105,7 +104,7 @@ lock_client_cache::get_lock_status(lock_protocol::lockid_t lid){
 	if (locks_.find(lid) == locks_.end()){
 		locks_[lid].status_ = NONE;
 		locks_[lid].owner_ = default_owner_;
-		VERIFY(pthread_cond_init(&locks_[lid].cond_, NULL) == 0);
+		pthread_cond_init(&locks_[lid].cond_, NULL) == 0;
 		locks_[lid].append_ = 0;
 		locks_[lid].revoked_ = false;
 		locks_[lid].retry_ = false;
@@ -120,7 +119,7 @@ bool lock_client_cache::lock_should_retry(lock_protocol::lockid_t lid){
 }
 
 void lock_client_cache::forget_lock(lock_protocol::lockid_t lid){
-	VERIFY(locks_[lid].append_ == 0);
+	locks_[lid].append_ == 0;
 	locks_[lid].status_ = NONE;
 	locks_[lid].owner_ = default_owner_;
 //	tprintf("%s reset lock %lld before %d now 0 by thread %u\n",id.c_str(), lid, locks_[lid].append_, (unsigned int)pthread_self());
@@ -158,7 +157,6 @@ bool lock_client_cache::lock(lock_protocol::lockid_t lid){
 	if (missed){
 		lock_protocol::status rst;
 		int r;
-//		int i = 0;
 		pthread_mutex_unlock(&locks_mutex_);
 		do{
 //			tprintf("%s try get lock %lld for %d time\n", id.c_str(), lid, ++i);
@@ -201,7 +199,6 @@ bool lock_client_cache::unlock(lock_protocol::lockid_t lid){
 	case FREE:
 	case ACQUIRING:
 	case NONE:
-		//should not be here
 		VERIFY(0);
 		break;
 	}
@@ -209,14 +206,13 @@ bool lock_client_cache::unlock(lock_protocol::lockid_t lid){
 	if (to_revoke){
 		lock_protocol::status rst;
 		int r;
-//		int i = 0;
 		pthread_mutex_unlock(&locks_mutex_);
 		do{
 //			tprintf("%s try release lock %lld for %d time\n", id.c_str(), lid, ++i);
 			rst = cl->call(lock_protocol::release, lid, id, r);
 		}while(rst != lock_protocol::OK);
 		pthread_mutex_lock(&locks_mutex_);
-		VERIFY(rst == lock_protocol::OK);
+		rst == lock_protocol::OK;
 		forget_lock(lid);
 		ret = true;
 //		tprintf("%s unlock %lld %s \n", id.c_str(), lid, ret?"success":"fail");
