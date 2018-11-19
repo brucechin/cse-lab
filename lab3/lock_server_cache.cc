@@ -16,11 +16,6 @@ lock_server_cache::lock_server_cache()
   pthread_cond_init(&lock_cond_, NULL);
 }
 
-lock_server::~lock_server(){
-
-}
-
-
 
 
 int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id, int &r)
