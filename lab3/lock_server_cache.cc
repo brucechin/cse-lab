@@ -15,9 +15,7 @@ lock_server_cache::lock_server_cache()
 	VERIFY(pthread_cond_init(&locks_cond_, NULL) == 0);
 }
 
-lock_server_cache::~lock_server_cache(){
 
-}
 
 bool lock_server_cache::get_lock(std::string cid, lock_protocol::lockid_t lid){
 	bool ret = true;
