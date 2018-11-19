@@ -20,7 +20,7 @@ lock_client_cache::lock_client_cache(std::string xdst,
   const char *hname;
   hname = "127.0.0.1";
   std::ostringstream host;
-  host << hname << ":" << rlsrpc->port();
+  host << hname << ":" << rlock_port;
   id = host.str();
   VERIFY(pthread_mutex_init(&locks_mutex_, NULL) == 0);
   default_owner_ = pthread_self();
