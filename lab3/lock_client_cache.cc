@@ -18,16 +18,16 @@ lock_client_cache::lock_client_cache(std::string xdst,
 
   srand(time(NULL)^last_port);
   rlock_port = ((rand()%32000) | (0x1 << 10));
-  
-  rpcs *rlsrpc = new rpcs(rlock_port);
-  rlsrpc->reg(rlock_protocol::revoke, this, &lock_client_cache::revoke_handler);
-  rlsrpc->reg(rlock_protocol::retry, this, &lock_client_cache::retry_handler);
 
   const char *hname;
   hname = "127.0.0.1";
   std::ostringstream host;
   host << hname << ":" << rlock_port;
   id = host.str();
+  last_port = rlock_port;
+  rpcs *rlsrpc = new rpcs(rlock_port);
+  rlsrpc->reg(rlock_protocol::revoke, this, &lock_client_cache::revoke_handler);
+  rlsrpc->reg(rlock_protocol::retry, this, &lock_client_cache::retry_handler);
   VERIFY(pthread_mutex_init(&locks_mutex_, NULL) == 0);
   default_owner_ = pthread_self();
 }
