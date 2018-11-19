@@ -14,7 +14,7 @@
 
 class lock_server_cache {
  private:
-  int nacquire;
+  	int nacquire;
 	std::map<lock_protocol::lockid_t, std::string> locks_;
 	typedef std::map<lock_protocol::lockid_t, std::string>::iterator locks_iterator_t;
 	pthread_mutex_t	locks_mutex_;
@@ -27,11 +27,11 @@ class lock_server_cache {
 	bool drop_lock(std::string cid, lock_protocol::lockid_t lid);
 
  public:
-  lock_server_cache();
-  lock_protocol::status stat(lock_protocol::lockid_t, int &);
-  int acquire(lock_protocol::lockid_t, std::string id, int &);
-  int release(lock_protocol::lockid_t, std::string id, int &);
-  lock_protocol::status reversed_rpc(unsigned int proc, std::string cid, lock_protocol::lockid_t lid);
+	lock_server_cache();
+	lock_protocol::status stat(lock_protocol::lockid_t, int &);
+	int acquire(lock_protocol::lockid_t, std::string id, int &);
+	int release(lock_protocol::lockid_t, std::string id, int &);
+	lock_protocol::status reversed_rpc(unsigned int proc, std::string cid, lock_protocol::lockid_t lid);
 };
 
 

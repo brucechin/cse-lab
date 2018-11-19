@@ -12,8 +12,8 @@
 
 lock_server_cache::lock_server_cache()
 {
-  pthread_mutex_init(&lock_map_mutex_, NULL);
-  pthread_cond_init(&lock_cond_, NULL);
+  pthread_mutex_init(&locks_mutex_, NULL);
+  pthread_cond_init(&locks_cond_, NULL);
 }
 
 
