@@ -7,7 +7,7 @@
 #include <iostream>
 #include <stdio.h>
 #include "tprintf.h"
-
+#include <pthrea.h>
 
 lock_client_cache::lock_client_cache(std::string xdst, 
 				     class lock_release_user *_lu)
