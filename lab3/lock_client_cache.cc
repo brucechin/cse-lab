@@ -35,7 +35,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
 {
 	pthread_mutex_lock(&locks_mutex_);
 	if (!lock(lid)){
-		inc_lock_appending(lid);
+		locks_[lid].append_++;
 		while(true){
 			if(!lock_should_retry(lid)){
 				lock_cond_wait(lid, locks_mutex_);
@@ -44,7 +44,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
 				break;
 			}
 		}
-		dec_lock_appending(lid);
+		locks_[lid].append_--;
 	}
 	pthread_mutex_unlock(&locks_mutex_);
 	return lock_protocol::OK;
@@ -71,16 +71,16 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid, int &)
 	int ret = rlock_protocol::OK;
 	lock_status_t status;
 	pthread_mutex_lock(&locks_mutex_);
-	status = get_lock_status(lid);
-//	tprintf("%s got revoke %lld lock is %x or has appending %d\n", id.c_str(), lid, status, locks_[lid].append_);
-	if (status == FREE && !lock_has_appending(lid)){
+	status = locks_[lid].status_;
+//	tprintf("%s got revoke %lld lock is %x or has appending %d\lock_has_appending(lid)n", id.c_str(), lid, status, locks_[lid].append_);
+	if (status == FREE && !(locks_[lid].append_ > 0)){
 //		tprintf("%s got revoke %lld lock is free \n", id.c_str(), lid);
 		ret = rlock_protocol::OK_FREE;
-		set_lock_status(lid, NONE);
+		locks_[lid].status_ = NONE;
 //		tprintf("%s released lock %lld upon revoke\n", id.c_str(), lid);
 	}else{
 //		tprintf("%s got revoke %lld lock is not free \n", id.c_str(), lid);
-		set_lock_revoked(lid);
+		locks_[lid].revoked_ = true;
 		
 	}
 	pthread_mutex_unlock(&locks_mutex_);
@@ -93,7 +93,7 @@ lock_client_cache::retry_handler(lock_protocol::lockid_t lid, int &)
 	int ret = rlock_protocol::OK;
 	pthread_mutex_lock(&locks_mutex_);
 	lock_cond_broadcast(lid);
-	set_lock_retry(lid);
+  locks_[lid].retry_ = true;
 //	tprintf("%s got retry %lld\n", id.c_str(), lid);
 	pthread_mutex_unlock(&locks_mutex_);
 	return ret;
@@ -113,44 +113,10 @@ lock_client_cache::get_lock_status(lock_protocol::lockid_t lid){
 	return locks_[lid].status_;
 }
 
-bool lock_client_cache::is_lock_owner(lock_protocol::lockid_t lid,  pthread_t owner){
-	return pthread_equal(locks_[lid].owner_, owner);
-}
-
-bool lock_client_cache::lock_has_appending(lock_protocol::lockid_t lid){
-	return (locks_[lid].append_ > 0);
-}
-
-bool lock_client_cache::is_lock_revoked(lock_protocol::lockid_t lid){
-	return locks_[lid].revoked_;
-}
-
-void lock_client_cache::set_lock_revoked(lock_protocol::lockid_t lid){
-	locks_[lid].revoked_ = true;
-}
-
-void lock_client_cache::inc_lock_appending(lock_protocol::lockid_t lid){
-	++locks_[lid].append_;
-//	tprintf("%s inc_lock_appending lock %lld before %d now %d by thread %u\n",id.c_str(), lid, locks_[lid].append_ - 1, locks_[lid].append_, (unsigned int)pthread_self());
-}
-
-void lock_client_cache::dec_lock_appending(lock_protocol::lockid_t lid){
-	--locks_[lid].append_;
-//	tprintf("%s dec_lock_appending lock %lld before %d now %d by thread %u\n",id.c_str(), lid, locks_[lid].append_ + 1, locks_[lid].append_, (unsigned int)pthread_self());
-}
-
 bool lock_client_cache::lock_should_retry(lock_protocol::lockid_t lid){
 	bool ret = locks_[lid].retry_;
 	locks_[lid].retry_ = false;
 	return ret;
-}
-
-void lock_client_cache::set_lock_retry(lock_protocol::lockid_t lid){
-	locks_[lid].retry_ = true;
-}
-
-void lock_client_cache::set_lock_status(lock_protocol::lockid_t lid, lock_status_t status){
-	locks_[lid].status_ = status;
 }
 
 void lock_client_cache::forget_lock(lock_protocol::lockid_t lid){
@@ -164,9 +130,6 @@ void lock_client_cache::forget_lock(lock_protocol::lockid_t lid){
 	
 }
 
-void lock_client_cache::set_lock_owner(lock_protocol::lockid_t lid, pthread_t owner){
-	locks_[lid].owner_ = owner;
-}
 
 bool lock_client_cache::lock(lock_protocol::lockid_t lid){
 //	tprintf("%s try get lock %lld locally\n", id.c_str(), lid);
@@ -175,7 +138,7 @@ bool lock_client_cache::lock(lock_protocol::lockid_t lid){
 	lock_status_t status = get_lock_status(lid);
 	switch(status){
 	case FREE:
-		set_lock_status(lid, LOCKED);
+		locks_[lid].status_ = LOCKED;
 		set_lock_owner(lid, pthread_self());
 		ret = true;
 		break;
@@ -187,7 +150,7 @@ bool lock_client_cache::lock(lock_protocol::lockid_t lid){
 		break;
 	case NONE:
 		missed = true;
-		set_lock_status(lid, ACQUIRING);
+		locks_[lid].status_ = ACQUIRING;
 		set_lock_owner(lid, pthread_self());
 		break;
 	}
@@ -203,12 +166,12 @@ bool lock_client_cache::lock(lock_protocol::lockid_t lid){
 		}while(!(rst == lock_protocol::OK || rst == lock_protocol::RETRY));
 		pthread_mutex_lock(&locks_mutex_);
 		if (rst == lock_protocol::OK){
-			set_lock_status(lid, LOCKED);
-			set_lock_owner(lid, pthread_self());
+			locks_[lid].status_ = LOCKED;
+			locks_[lid].owner_ = pthread_self();
 			ret = true;
 		}else if(rst == lock_protocol::RETRY){
-			set_lock_status(lid, NONE);
-			set_lock_owner(lid, default_owner_);
+			locks_[lid].status_ = NONE;
+			locks_[lid].owner_ = default_owner_;
 			ret = false;
 		}
 //		tprintf("%s lock %lld %s r = %x\n", id.c_str(), lid, ret?"success":"fail", r);
@@ -223,12 +186,12 @@ bool lock_client_cache::unlock(lock_protocol::lockid_t lid){
 	lock_status_t status = get_lock_status(lid);
 	switch(status){
 	case LOCKED:
-		if (is_lock_owner(lid, pthread_self())){
-			if (is_lock_revoked(lid) && !lock_has_appending(lid)){
-				set_lock_status(lid, RELEASING);
+		if (pthread_equal(locks_[lid].owner_, pthread_self())){
+			if (locks_[lid].revoked_ && !(locks_[lid].append_ > 0)){
+				locks_[lid].status_ = RELEASING;
 				to_revoke = true;
 			}else{
-				set_lock_status(lid, FREE);
+				locks_[lid].status_ = FREE;
 				ret = true;
 			}
 		}
@@ -258,7 +221,6 @@ bool lock_client_cache::unlock(lock_protocol::lockid_t lid){
 		ret = true;
 //		tprintf("%s unlock %lld %s \n", id.c_str(), lid, ret?"success":"fail");
 	}
-//	tprintf("%s unlock %lld %s lock is %x, owner is %u , i am %u to_revoke = %s is_lock_revoked = %s has_appending = %s\n", id.c_str(), lid, ret?"sucess":"fail", locks_[lid].status_, locks_[lid].owner_, pthread_self(), to_revoke?"true":"false", is_lock_revoked(lid)?"true":"false", lock_has_appending(lid)?"true":"false");
 //	tprintf("%s unlock %lld", id.c_str(), lid);
 //	printf(" %s\n", ret?"success":"fail");
 	return ret;
