@@ -139,7 +139,7 @@ bool lock_client_cache::lock(lock_protocol::lockid_t lid){
 	switch(status){
 	case FREE:
 		locks_[lid].status_ = LOCKED;
-		set_lock_owner(lid, pthread_self());
+		locks_[lid].owner_ = pthread_self();
 		ret = true;
 		break;
 	case LOCKED:
@@ -151,7 +151,7 @@ bool lock_client_cache::lock(lock_protocol::lockid_t lid){
 	case NONE:
 		missed = true;
 		locks_[lid].status_ = ACQUIRING;
-		set_lock_owner(lid, pthread_self());
+		locks_[lid].owner_ = pthread_self();
 		break;
 	}
 
