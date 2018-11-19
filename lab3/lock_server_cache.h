@@ -2,9 +2,11 @@
 #define lock_server_cache_h
 
 #include <string>
+#include <queue>
 
 
 #include <map>
+#include <set>
 #include "lock_protocol.h"
 #include "rpc.h"
 #include "lock_server.h"
