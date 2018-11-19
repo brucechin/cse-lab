@@ -7,12 +7,18 @@
 #include <iostream>
 #include <stdio.h>
 #include "tprintf.h"
-#include <pthrea.h>
+#include <pthread.h>
+
+int lock_client_cache::last_port = 0;
 
 lock_client_cache::lock_client_cache(std::string xdst, 
 				     class lock_release_user *_lu)
   : lock_client(xdst), lu(_lu)
 {
+
+  srand(time(NULL)^last_port);
+  rlock_port = ((rand()%32000) | (0x1 << 10));
+  
   rpcs *rlsrpc = new rpcs(rlock_port);
   rlsrpc->reg(rlock_protocol::revoke, this, &lock_client_cache::revoke_handler);
   rlsrpc->reg(rlock_protocol::retry, this, &lock_client_cache::retry_handler);
@@ -185,7 +191,7 @@ bool lock_client_cache::unlock(lock_protocol::lockid_t lid){
 	lock_status_t status = get_lock_status(lid);
 	switch(status){
 	case LOCKED:
-    if (pthread_equal(locks_[lid].owner_, pthread_self)){
+    if (pthread_equal(locks_[lid].owner_, pthread_self())){
 			if (locks_[lid].revoked_ && !(locks_[lid].append_ > 0)){
 				locks_[lid].status_ = RELEASING;
 				to_revoke = true;

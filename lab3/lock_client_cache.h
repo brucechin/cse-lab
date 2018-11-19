@@ -60,7 +60,7 @@ private:
 	bool unlock(lock_protocol::lockid_t lid);
 	//functions above must be called with locks_mutex_ locked
 public:
-
+  static int last_port = 0;
 	lock_client_cache(std::string xdst, class lock_release_user *l = 0);
 	virtual ~lock_client_cache() {};
 	lock_protocol::status acquire(lock_protocol::lockid_t);
