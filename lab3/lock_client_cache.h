@@ -5,17 +5,16 @@
 #define lock_client_cache_h
 
 #include <string>
-#include <set>
 #include "lock_protocol.h"
 #include "rpc.h"
 #include "lock_client.h"
 #include "lang/verify.h"
-#include  <pthread.h>
 
-
+#include <map>
+#include <pthread.h>
 // Classes that inherit lock_release_user can override dorelease so that 
 // that they will be called when lock_client releases a lock.
-// You will not need to do anything with this class until Lab 6.
+// You will not need to do anything with this class until Lab 5.
 class lock_release_user {
 public:
 	virtual void dorelease(lock_protocol::lockid_t) = 0;
@@ -49,9 +48,15 @@ private:
 	//functions below must be called with locks_mutex_ locked 
 	lock_status_t get_lock_status(lock_protocol::lockid_t lid);
 		//fuctions below must be called after the lock is touched by get_lock_status
-
+	bool is_lock_owner(lock_protocol::lockid_t lid, pthread_t owner);	
+	bool lock_has_appending(lock_protocol::lockid_t lid);
+	bool is_lock_revoked(lock_protocol::lockid_t lid);
 	bool lock_should_retry(lock_protocol::lockid_t lid);
-
+	void inc_lock_appending(lock_protocol::lockid_t lid);
+	void dec_lock_appending(lock_protocol::lockid_t lid);
+	void set_lock_status(lock_protocol::lockid_t lid, lock_status_t status);	
+	void set_lock_owner(lock_protocol::lockid_t lid, pthread_t owner);
+	void set_lock_revoked(lock_protocol::lockid_t lid); 
 	void forget_lock(lock_protocol::lockid_t lid);
 	void set_lock_retry(lock_protocol::lockid_t lid);
 	#define lock_cond_wait(lid, mutex) pthread_cond_wait(&locks_[(lid)].cond_, &(mutex))  
@@ -60,7 +65,7 @@ private:
 	bool unlock(lock_protocol::lockid_t lid);
 	//functions above must be called with locks_mutex_ locked
 public:
-  static int last_port;
+
 	lock_client_cache(std::string xdst, class lock_release_user *l = 0);
 	virtual ~lock_client_cache() {};
 	lock_protocol::status acquire(lock_protocol::lockid_t);
@@ -68,7 +73,6 @@ public:
 	rlock_protocol::status revoke_handler(lock_protocol::lockid_t, int &);
 	rlock_protocol::status retry_handler(lock_protocol::lockid_t, int &);
 };
-
 
 
 #endif
