@@ -11,8 +11,8 @@
 
 lock_server_cache::lock_server_cache()
 {
-	VERIFY(pthread_mutex_init(&locks_mutex_, NULL) == 0);
-	VERIFY(pthread_cond_init(&locks_cond_, NULL) == 0);
+	pthread_mutex_init(&locks_mutex_, NULL) == 0;
+	pthread_cond_init(&locks_cond_, NULL) == 0;
 }
 
 
@@ -59,12 +59,12 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id, int 
 			}while(!(rst == rlock_protocol::OK || rst == rlock_protocol::OK_FREE));
 //			tprintf("revoke %s lock %lld\n", locks_[lid].c_str(), lid);
 			if (rst == rlock_protocol::OK_FREE){
-				VERIFY(drop_lock(locks_[lid], lid));
-				VERIFY(get_lock(id, lid));
+				drop_lock(locks_[lid], lid);
+				get_lock(id, lid);
 //				tprintf("%s got_lock %lld\n", id.c_str(), lid);
 	
 			}else{
-				VERIFY(rst == rlock_protocol::OK);
+				rst == rlock_protocol::OK;
 				ret = lock_protocol::RETRY;
 				r = lock_protocol_failure_code::LOCK_BUSY;
 //				tprintf("lock owner is %s\n", locks_[lid].c_str());
@@ -82,7 +82,7 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id, int 
 		}
 	}else{
 		if (!waiting_list_[lid].empty()){
-			VERIFY(waiting_list_[lid].front().compare(id) == 0);
+			waiting_list_[lid].front().compare(id) == 0;
 			waiting_list_[lid].pop();
 //			tprintf("%s popped from waiting list of lock %lld\n", id.c_str(), lid);
 			//need be revoked if queue is already not empty
