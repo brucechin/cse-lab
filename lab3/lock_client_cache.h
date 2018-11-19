@@ -50,6 +50,8 @@ private:
 	lock_status_t get_lock_status(lock_protocol::lockid_t lid);
 		//fuctions below must be called after the lock is touched by get_lock_status
 
+	bool lock_should_retry(lock_protocol::lockid_t lid);
+
 	void forget_lock(lock_protocol::lockid_t lid);
 	void set_lock_retry(lock_protocol::lockid_t lid);
 	#define lock_cond_wait(lid, mutex) pthread_cond_wait(&locks_[(lid)].cond_, &(mutex))  
