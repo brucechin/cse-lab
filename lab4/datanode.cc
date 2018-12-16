@@ -44,15 +44,20 @@ int DataNode::init(const string &extent_dst, const string &namenode, const struc
   return 0;
 }
 
+void DataNode::HeartBeat(){
+  while(true){
+    SendHeartbeat();
+    sleep(1);
+  }
+}
+
 bool DataNode::ReadBlock(blockid_t bid, uint64_t offset, uint64_t len, string &buf) {
   /* Your lab4 part 2 code */
-  string raw_buf;
-  int r;
-  r = ec->read_block(bid, raw_buf);
-  if (offset > raw_buf.size())
-    buf = "";
-  else
-    buf = raw_buf.substr(offset, len);
+  string tmp_buf;
+  int tmp;
+  tmp = ec->read_block(bid, buf);
+  if(offset > tmp_buf.size()) buf = "";
+  else buf = tmp_buf.substr(offset, len);
 
   return true;
 }
@@ -60,10 +65,10 @@ bool DataNode::ReadBlock(blockid_t bid, uint64_t offset, uint64_t len, string &b
 bool DataNode::WriteBlock(blockid_t bid, uint64_t offset, uint64_t len, const string &buf) {
   /* Your lab4 part 2 code */
 
-  string wbuf;
-  ec->read_block(bid, wbuf);
-  wbuf = wbuf.substr(0, offset) + buf + wbuf.substr(offset + len);
-  ec->write_block(bid, wbuf);
+  string tmp_buf;
+  ec->read_block(bid, tmp_buf);
+  tmp_buf = tmp_buf.substr(0, offset) + buf + tmp_buf.substr(offset + len);
+  ec->write_block(bid, tmp_buf);
   return false;
 }
 

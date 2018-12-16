@@ -162,12 +162,7 @@ bool DataNode::SendHeartbeat() {
   return true;
 }
 
-void DataNode::HeartBeat(){
-  while(true){
-    SendHeartbeat();
-    sleep(1);
-  }
-}
+
 
 static bool ReadOp(CodedInputStream &is, int &op) {
   uint8_t buf[3];
