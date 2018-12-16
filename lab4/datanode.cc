@@ -40,8 +40,7 @@ int DataNode::init(const string &extent_dst, const string &namenode, const struc
   }
   
   NewThread(this, &DataNode::heart);
-  if (ec->put(1, "") != extent_protocol::OK)
-      printf("error init root dir\n");
+
   
   /* Add your initialization here */
   return 0;

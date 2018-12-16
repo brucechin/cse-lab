@@ -16,13 +16,17 @@ void NameNode::init(const string &extent_dst, const string &lock_dst) {
   counter = 0;
   NewThread(this, &NameNode::CountBeat);
 }
-
+void NameNode::CountBeat(){
+  while(true){
+    this->counter++;
+    sleep(1);
+  }
+}
 list<NameNode::LocatedBlock> NameNode::GetBlockLocations(yfs_client::inum ino) {
 
   list<NameNode::LocatedBlock> list_block;
   list<blockid_t> block_ids;
   long long size = 0;
-  
   ec->get_block_ids(ino, block_ids);
   extent_protocol::attr attr;
   ec->getattr(ino, attr);
@@ -50,9 +54,7 @@ NameNode::LocatedBlock NameNode::AppendBlock(yfs_client::inum ino) {
   ec->append_block(ino, bid);
   modified_blocks.insert(bid);
   int size;
-  if(attr.size % BLOCK_SIZE == 0) size = BLOCK_SIZE;
-  else size = attr.size % BLOCK_SIZE;
-  LocatedBlock rst(bid, attr.size, size, GetDatanodes());
+  LocatedBlock rst(bid, attr.size, (attr.size % BLOCK_SIZE) ? attr.size % BLOCK_SIZE : BLOCK_SIZE, GetDatanodes());
   return rst;
 
 }
@@ -93,7 +95,8 @@ bool NameNode::Rename(yfs_client::inum src_dir_ino, string src_name, yfs_client:
 bool NameNode::Mkdir(yfs_client::inum parent, string name, mode_t mode, yfs_client::inum &ino_out) {
   //printf("mkdir : %s\n",name);
   fflush(stdout);
-  return !yfs->mkdir(parent, name.c_str(), mode, ino_out);
+  bool rst = !yfs->mkdir(parent, name.c_str(), mode, ino_out);
+  return res;
 }
 
 bool NameNode::Create(yfs_client::inum parent, string name, mode_t mode, yfs_client::inum &ino_out) {
