@@ -27,53 +27,39 @@ class yfs_client {
     unsigned long mtime;
     unsigned long ctime;
   };
+  struct symlinkinfo
+  {
+    /* data */
+    unsigned long long size;
+    unsigned int atime;
+    unsigned int mtime;
+    unsigned int ctime;
+  };
   struct dirinfo {
     unsigned long atime;
     unsigned long mtime;
     unsigned long ctime;
   };
-  typedef struct fileinfo slinkinfo;
   struct dirent {
     std::string name;
     yfs_client::inum inum;
   };
 
  private:
-  void _acquire(inum);
-  void _release(inum);
-
-  bool _has_duplicate(inum, const char *);
-  bool _add_entry_and_save(inum, const char *, inum);
-
-  bool _isfile(inum);
-  bool _isdir(inum);
-
-  int _getfile(inum, fileinfo &);
-  int _getdir(inum, dirinfo &);
-  int _getslink(inum, slinkinfo&);
-
-  int _setattr(inum, size_t);
-  int _lookup(inum, const char *, bool &, inum &);
-  int _create(inum, const char *, mode_t, inum &);
-  int _writedir(inum, std::list<dirent>&);
-  int _readdir(inum, std::list<dirent> &);
-  int _write(inum, size_t, off_t, const char *, size_t &);
-  int _read(inum, size_t, off_t, std::string &);
-  int _unlink(inum,const char *);
-  int _mkdir(inum , const char *, mode_t , inum &);
-  int _symlink(inum, const char *, const char *, inum&);
-  int _readslink(inum, std::string&);
-  int _rmdir(inum, const char *);
+  static std::string filename(inum);
+  static inum n2i(std::string);
 
  public:
   yfs_client(std::string, std::string);
+  yfs_client(extent_client * nec, lock_client* lock_dst);
 
   bool isfile(inum);
   bool isdir(inum);
+  bool issymlink(inum);
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
-  int getslink(inum, slinkinfo&);
+  int getsymlink(inum, symlinkinfo &);
 
   int setattr(inum, size_t);
   int lookup(inum, const char *, bool &, inum &);
@@ -83,10 +69,11 @@ class yfs_client {
   int read(inum, size_t, off_t, std::string &);
   int unlink(inum,const char *);
   int mkdir(inum , const char *, mode_t , inum &);
-  int symlink(inum, const char *, const char *, inum&);
-  int readslink(inum, std::string&);
-  int rmdir(inum, const char *);
-
+  int symlink(const char *, inum, const char *, inum &);
+  int readlink(inum, std::string &);
+  int pathToInum(const char *, inum);
+  int allPath(const char *, inum);
 };
 
-#endif
+#endif 
+

@@ -470,22 +470,28 @@ fuseserver_statfs(fuse_req_t req)
 }
 
 void fuseserver_symlink(fuse_req_t req, const char *link, fuse_ino_t parent, const char *name) {
-    struct fuse_entry_param e;
-
-    e.attr_timeout  = 0.0;
-    e.entry_timeout = 0.0;
-    e.generation    = 0;
-
-    int r;
-
-    yfs_client::inum inum;
-
-    if ((r = yfs->symlink(parent, link, name, inum)) == yfs_client::OK) {
-        e.ino = inum;
-        getattr(inum, e.attr);
+   int r;
+    yfs_client::inum ino;
+    if ((r = yfs->symlink(link, parent, name, ino)) == yfs_client::OK) {
+        struct fuse_entry_param e;
+        // In yfs, timeouts are always set to 0.0, and generations are always set to 0
+        e.attr_timeout = 0.0;
+        e.entry_timeout = 0.0;
+        e.generation = 0;
+        e.ino = ino;
+        (void) e;
+        getattr(ino, e.attr);
         fuse_reply_entry(req, &e);
     } else {
-        fuse_reply_err(req, r);
+        if (r == yfs_client::NOENT) {
+            fuse_reply_err(req, ENOENT);
+        } 
+        else if (r == yfs_client::EXIST){
+            fuse_reply_err(req, EEXIST);
+        }
+        else {
+            fuse_reply_err(req, ENOTEMPTY);
+        }
     }
 }
 

@@ -39,13 +39,16 @@ int DataNode::init(const string &extent_dst, const string &namenode, const struc
   /* Add your initialization here */
   NewThread(this, &DataNode::HeartBeat);
 
+  if (ec->put(1, "") != extent_protocol::OK) printf("error init root dir\n");
+ 
   return 0;
 }
 
 bool DataNode::ReadBlock(blockid_t bid, uint64_t offset, uint64_t len, string &buf) {
   /* Your lab4 part 2 code */
   string tmp_buf;
-  int tmp = ec->read_block(bid, buf);
+  int tmp;
+  tmp = ec->read_block(bid, buf);
   if(offset > tmp_buf.size()) buf = "";
   else buf = tmp_buf.substr(offset, len);
 
