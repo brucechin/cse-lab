@@ -21,7 +21,7 @@ list<NameNode::LocatedBlock> NameNode::GetBlockLocations(yfs_client::inum ino) {
 
   list<NameNode::LocatedBlock> list_block;
   list<blockid_t> block_ids;
-  unsigned long long size  = 0;
+  long long size = 0;
   
   ec->get_block_ids(ino, block_ids);
   extent_protocol::attr attr;
@@ -59,7 +59,7 @@ NameNode::LocatedBlock NameNode::AppendBlock(yfs_client::inum ino) {
 
 bool NameNode::Rename(yfs_client::inum src_dir_ino, string src_name, yfs_client::inum dst_dir_ino, string dst_name) {
   //printf("rename : %s to %s\n",src_name,dst_name);
-  fflush(stdout);
+  //fflush(stdout);
   string src_buf, dst_buf;
   ec->get(src_dir_ino, src_buf);
   ec->get(dst_dir_ino, dst_buf);
@@ -78,16 +78,16 @@ bool NameNode::Rename(yfs_client::inum src_dir_ino, string src_name, yfs_client:
   }
 
   if(flag){
-  if(src_dir_ino == dst_dir_ino) dst_buf = src_buf; // when in the same diretory
-  
-  dst_buf += dst_name;
-  dst_buf.resize(dst_buf.size() + 5, 0);
-  *(uint32_t *)(dst_buf.c_str() + dst_buf.size() -4) = dst_ino;
-  
-  ec->put(src_dir_ino, src_buf);
-  ec->put(dst_dir_ino, dst_buf);
+    if(src_dir_ino == dst_dir_ino) dst_buf = src_buf; // when in the same diretory
+    
+    dst_buf += dst_name;
+    dst_buf.resize(dst_buf.size() + 5, 0);
+    *(uint32_t *)(dst_buf.c_str() + dst_buf.size() -4) = dst_ino;
+    
+    ec->put(src_dir_ino, src_buf);
+    ec->put(dst_dir_ino, dst_buf);
   }
-  return false;
+  return flag;
 }
 
 bool NameNode::Mkdir(yfs_client::inum parent, string name, mode_t mode, yfs_client::inum &ino_out) {
@@ -114,12 +114,15 @@ bool NameNode::Isfile(yfs_client::inum ino) {
   }
 
   if(tmp.type == extent_protocol::T_FILE) return true;
+  else if (a.type == extent_protocol::T_SYMLK) {
+      return false;
+  } 
   return false;
 }
 
 bool NameNode::Isdir(yfs_client::inum ino) {
   //printf("isdir? \n");
-  fflush(stdout);
+  //fflush(stdout);
   extent_protocol::attr tmp;
   if(ec->getattr(ino, tmp) != extent_protocol::OK){
     printf("error getting attr\n");
@@ -155,7 +158,7 @@ bool NameNode::Getdir(yfs_client::inum ino, yfs_client::dirinfo &info) {
 
 bool NameNode::Readdir(yfs_client::inum ino, std::list<yfs_client::dirent> &dir) {
   //printf("readdir\n");
-  fflush(stdout);
+  //fflush(stdout);
   string buf;
   ec->get(ino, buf);
   int pos = 0;
@@ -183,6 +186,7 @@ bool NameNode::Unlink(yfs_client::inum parent, string name, yfs_client::inum ino
       ec->remove(ino);
       return true;
     }
+    pos += strlen(t) + 1 + sizeof(uint32_t);
   }
   return false;
 }
