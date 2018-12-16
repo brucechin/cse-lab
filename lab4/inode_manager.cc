@@ -482,7 +482,27 @@ inode_manager::append_block(uint32_t inum, blockid_t &bid)
   /*
    * your code goes here.
    */
+  bid = bm->alloc_block();
+  struct inode* ino = get_inode(inum);
 
+  int num_blocks = ino->size / BLOCK_SIZE;
+  num_blocks += (ino->size % BLOCK_SIZE > 0) ? 1 : 0;
+  if(num_blocks > MAXFILE) return;
+
+  if(num_blocks < NDIRECT){
+    ino->blocks[num_blocks] = bid; // direct ref
+  }else{
+    int tmp[NINDIRECT]; //read indirect inode, append bid behind it and write back
+    if(num_blocks == NDIRECT) ino->blocks[NDIRECT] = bm->alloc_block();
+
+    bm->read_block(ino->blocks[NDIRECT], (char *)tmp);
+    tmp[num_blocks-NDIRECT] = bid;
+    bm->write_block(ino->blocks[NDIRECT], (char *)tmp);
+  }
+
+  num_blocks++;
+  ino->size += BLOCK_SIZE;
+  put_inode(inum, ino);
 }
 
 void
@@ -492,6 +512,23 @@ inode_manager::get_block_ids(uint32_t inum, std::list<blockid_t> &block_ids)
    * your code goes here.
    */
 
+   struct inode* ino = get_inode(inum);
+   int tmp[NINDIRECT];
+   int num_blocks = ino->size / BLOCK_SIZE;
+   num_blocks += (ino->size % BLOCK_SIZE > 0) ? 1 : 0;
+   
+   if(num_blocks <= NDIRECT){
+     for(int i = 0; i < num_blocks; i++) block_ids.push_back(ino->blocks[i]);
+   }else{
+     bm->read_block(ino->blocks[NDIRECT],(char *)tmp);
+     for(int i = 0; i < NDIRECT; i++) block_ids.push_back(ino->blocks[i]);
+
+     for(int i = NDIRECT; i < num_blocks; i++) block_ids.push_back(tmp[i-NDIRECT]);
+   }
+
+  return;
+   
+
 }
 
 void
@@ -500,6 +537,7 @@ inode_manager::read_block(blockid_t id, char buf[BLOCK_SIZE])
   /*
    * your code goes here.
    */
+   bm->read_block(id, buf);
 
 }
 
@@ -509,7 +547,7 @@ inode_manager::write_block(blockid_t id, const char buf[BLOCK_SIZE])
   /*
    * your code goes here.
    */
-
+  bm->write_block(id, buf);
 }
 
 void
@@ -518,5 +556,7 @@ inode_manager::complete(uint32_t inum, uint32_t size)
   /*
    * your code goes here.
    */
-
+  struct inode * ino = get_inode(inum);
+  ino->size = size;
+  put_inode(inum, ino);
 }

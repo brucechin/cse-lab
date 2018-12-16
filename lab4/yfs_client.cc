@@ -1,6 +1,7 @@
 // yfs client.  implements FS operations using extent and lock server
 #include "yfs_client.h"
 #include "extent_client.h"
+#include "lock_client_cache.h"
 #include <sstream>
 #include <iostream>
 #include <stdio.h>
@@ -8,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
 
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst) {
     ec = new extent_client(extent_dst);
@@ -26,9 +28,9 @@ void yfs_client::_release(inum inum) {
 }
 
 bool yfs_client::isfile(inum inum) {
-    _acquire(inum);
+    //_acquire(inum);
     bool result = _isfile(inum);
-    _release(inum);
+    //_release(inum);
     return result;
 }
 
@@ -49,9 +51,9 @@ bool yfs_client::_isfile(inum inum) {
 }
 
 bool yfs_client::isdir(inum inum) {
-    _acquire(inum);
+    //_acquire(inum);
     bool result = _isdir(inum);
-    _release(inum);
+    //_release(inum);
     return result;
 }
 
@@ -72,9 +74,9 @@ bool yfs_client::_isdir(inum inum) {
 }
 
 int yfs_client::getfile(inum inum, fileinfo& fin) {
-    _acquire(inum);
+    //_acquire(inum);
     int result = _getfile(inum, fin);
-    _release(inum);
+    //_release(inum);
     return result;
 }
 
@@ -95,9 +97,9 @@ int yfs_client::_getfile(inum inum, fileinfo& fin) {
 }
 
 int yfs_client::getdir(inum inum, dirinfo& din) {
-    _acquire(inum);
+    //_acquire(inum);
     int result = _getdir(inum, din);
-    _release(inum);
+    //_release(inum);
     return result;
 }
 
@@ -117,9 +119,9 @@ int yfs_client::_getdir(inum inum, dirinfo& din) {
 }
 
 int yfs_client::getslink(inum inum, slinkinfo& sin) {
-    _acquire(inum);
+    //_acquire(inum);
     int result = _getslink(inum, sin);
-    _release(inum);
+    //_release(inum);
     return result;
 }
 
@@ -166,9 +168,9 @@ bool yfs_client::_add_entry_and_save(inum parent, const char *name, inum inum) {
 }
 
 int yfs_client::mkdir(inum parent, const char *name, mode_t mode, inum& ino_out) {
-    _acquire(parent);
+    //_acquire(parent);
     int result = _mkdir(parent, name, mode, ino_out);
-    _release(parent);
+    //_release(parent);
     return result;
 }
 
@@ -193,9 +195,9 @@ int yfs_client::_mkdir(inum parent, const char *name, mode_t mode, inum& ino_out
 }
 
 int yfs_client::lookup(inum parent, const char *name, bool& found, inum& ino_out) {
-    _acquire(parent);
+    //_acquire(parent);
     int result = _lookup(parent, name, found, ino_out);
-    _release(parent);
+    //_release(parent);
     return result;
 }
 
@@ -221,9 +223,9 @@ int yfs_client::_lookup(inum parent, const char *name, bool& found, inum& ino_ou
 }
 
 int yfs_client::readdir(inum dir, std::list<dirent>& list) {
-    _acquire(dir);
+    //_acquire(dir);
     int result = _readdir(dir, list);
-    _release(dir);
+    //_release(dir);
     return result;
 }
 
@@ -270,9 +272,9 @@ int yfs_client::_writedir(inum dir, std::list<dirent>& entries) {
 
 // Only support set size of attr
 int yfs_client::setattr(inum ino, size_t size) {
-    _acquire(ino);
+    //_acquire(ino);
     int result = _setattr(ino, size);
-    _release(ino);
+    //_release(ino);
     return result;
 }
 
@@ -340,9 +342,9 @@ int yfs_client::_create(inum parent, const char *name, mode_t mode, inum& ino_ou
 }
 
 int yfs_client::read(inum ino, size_t size, off_t off, std::string& data) {
-    _acquire(ino);
+    //_acquire(ino);
     int result = _read(ino, size, off, data);
-    _release(ino);
+    //_release(ino);
     return result;
 }
 
@@ -389,9 +391,9 @@ int yfs_client::_read(inum ino, size_t size, off_t off, std::string& data) {
 }
 
 int yfs_client::write(inum ino, size_t size, off_t off, const char *data, size_t& bytes_written) {
-    _acquire(ino);
+    //_acquire(ino);
     int result = _write(ino, size, off, data, bytes_written);
-    _release(ino);
+    //_release(ino);
     return result;
 }
 
@@ -506,9 +508,9 @@ int yfs_client::_unlink(inum parent, const char *name) {
 }
 
 int yfs_client::symlink(inum parent, const char *link, const char *name, inum& ino_out) {
-    _acquire(parent);
+    //_acquire(parent);
     int result = _symlink(parent, link, name, ino_out);
-    _release(parent);
+    //_release(parent);
     return result;
 }
 
@@ -540,9 +542,9 @@ int yfs_client::_symlink(inum parent, const char *link, const char *name, inum& 
 }
 
 int yfs_client::readslink(inum ino, std::string& path) {
-    _acquire(ino);
+    //_acquire(ino);
     int result = _readslink(ino, path);
-    _release(ino);
+    //_release(ino);
     return result;
 }
 
@@ -563,7 +565,7 @@ int yfs_client::_readslink(inum ino, std::string& path) {
 }
 
 int yfs_client::rmdir(inum parent, const char *name) {
-    _acquire(parent);
+    //_acquire(parent);
     bool found;
     inum ino;
 
@@ -576,10 +578,10 @@ int yfs_client::rmdir(inum parent, const char *name) {
         _release(parent);
         return IOERR;
     }
-    _acquire(ino);
+    //_acquire(ino);
     int result = _rmdir(parent, name);
-    _release(ino);
-    _release(parent);
+    //_release(ino);
+    //_release(parent);
     return result;
 }
 

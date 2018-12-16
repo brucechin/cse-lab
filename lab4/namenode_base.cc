@@ -17,6 +17,12 @@ using namespace std;
 using namespace google::protobuf::io;
 
 NameNode namenode;
+void NameNode::CountBeat(){
+  while(true){
+    this->counter++;
+    sleep(1);
+  }
+}
 
 int ReadHeader(int fd) {
   char buf[7];
@@ -48,6 +54,8 @@ int ReadHeader(int fd) {
   }
   return 0;
 }
+
+
 
 int HandleRpc(int fd) {
   RpcRequestHeaderProto rpc_header;
