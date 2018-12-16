@@ -18,8 +18,6 @@ using namespace google::protobuf::io;
 
 DataNode datanode;
 
-
-
 string DataNode::GetHostname() {
   char hostname[256];
   if (gethostname(hostname, sizeof(hostname)) != 0) {
@@ -162,7 +160,12 @@ bool DataNode::SendHeartbeat() {
   return true;
 }
 
-
+void DataNode::heart(){
+  while(true){
+    SendHeartbeat();
+    sleep(1);
+  }
+}
 
 static bool ReadOp(CodedInputStream &is, int &op) {
   uint8_t buf[3];
