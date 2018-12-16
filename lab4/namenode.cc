@@ -114,7 +114,7 @@ bool NameNode::Isfile(yfs_client::inum ino) {
   }
 
   if(tmp.type == extent_protocol::T_FILE) return true;
-  else if (a.type == extent_protocol::T_SYMLK) {
+  else if (tmp.type == extent_protocol::T_SYMLK) {
       return false;
   } 
   return false;
@@ -186,7 +186,7 @@ bool NameNode::Unlink(yfs_client::inum parent, string name, yfs_client::inum ino
       ec->remove(ino);
       return true;
     }
-    pos += strlen(t) + 1 + sizeof(uint32_t);
+    pos += strlen(p) + 1 + sizeof(uint32_t);
   }
   return false;
 }
