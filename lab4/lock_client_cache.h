@@ -27,20 +27,9 @@ class lock_client_cache : public lock_client {
   int rlock_port;
   std::string hostname;
   std::string id;
-
-  enum lstates {NONE, OWN, FREE, ACQUIRING, RELEASING};
-  typedef struct ty_alock {
-    int l_state;
-    pthread_cond_t l_cond;
-    bool revoke;
-    std::set<pthread_t> waitings;
-    // pthread_cond_t l_revoke;
-  } alock;
-  std::map<lock_protocol::lockid_t, alock> ltable;
-  pthread_mutex_t pooll;
-  // pool condition variable for cache lock client
-  pthread_cond_t poolc;
-  
+  std::map<lock_protocol::lockid_t, int> lock;
+  pthread_mutex_t mutex;
+  pthread_cond_t cond[1100];
  public:
   static int last_port;
   lock_client_cache(std::string xdst, class lock_release_user *l = 0);
@@ -49,7 +38,7 @@ class lock_client_cache : public lock_client {
   lock_protocol::status release(lock_protocol::lockid_t);
   rlock_protocol::status revoke_handler(lock_protocol::lockid_t, 
                                         int &);
-  rlock_protocol::status retry_handler(lock_protocol::lockid_t, 
+  rlock_protocol::status retry_handler(lock_protocol::lockid_t, int,
                                        int &);
 };
 
