@@ -155,7 +155,7 @@ fuse.o: fuse.cc
 clean_files=rpc/rpctest rpc/*.o rpc/*.d *.o *.d yfs_client extent_server lock_server lock_tester lock_demo rpctest test-lab2-part1-a test-lab2-part1-b test-lab2-part1-c test-lab2-part1-g test-lab2-part2-a test-lab2-part2-b test-lab-3-a test-lab-3-b rsm_tester lab1_tester demo_client demo_server proto/output/*.o
 .PHONY: clean handin
 clean:
-	rm $(clean_files) -rf
+	rm $(clean_files) -rf datanode namenode libprotobuf.a
 
 handin_ignore=$(clean_files) core* *log .git
 handin_file=lab$(LAB).tgz
