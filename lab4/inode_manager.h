@@ -1,93 +1,97 @@
+// inode layer interface.
+
 #ifndef inode_h
 #define inode_h
 
 #include <stdint.h>
-#include <pthread.h>
 #include "extent_protocol.h" // TODO: delete it
-
-#define DISK_SIZE  1024*1024*16
-#define BLOCK_SIZE 512
+#define DISK_SIZE  1024*1024*32
+#define BLOCK_SIZE (1024*16)
 #define BLOCK_NUM  (DISK_SIZE/BLOCK_SIZE)
-
-typedef uint32_t blockid_t;
 
 // disk layer -----------------------------------------
 
 class disk {
- private:
-  unsigned char blocks[BLOCK_NUM][BLOCK_SIZE];
+private:
 
- public:
-  disk();
-  void read_block(uint32_t id, char *buf);
-  void write_block(uint32_t id, const char *buf);
+    unsigned char blocks[BLOCK_NUM][BLOCK_SIZE];
+
+public:
+
+    disk();
+    void read_block(uint32_t id,
+                    char    *buf);
+    void write_block(uint32_t    id,
+                     const char *buf);
 };
 
 // block layer -----------------------------------------
 
 typedef struct superblock {
-  uint32_t size;
-  uint32_t nblocks;
-  uint32_t ninodes;
+    uint32_t size;
+    uint32_t nblocks;
+    uint32_t ninodes;
 } superblock_t;
 
 class block_manager {
- private:
-  disk *d;
-  std::map <uint32_t, int> using_blocks;
-  pthread_mutex_t bitmap_mutex; 
- public:
-  block_manager();
-  struct superblock sb;
+private:
 
-  uint32_t alloc_block();
-  void free_block(uint32_t id);
-  void read_block(uint32_t id, char *buf);
-  void write_block(uint32_t id, const char *buf);
+    disk *d;
+    std::map<uint32_t, int>using_blocks;
+
+public:
+
+    block_manager();
+    struct superblock sb;
+
+    uint32_t alloc_block();
+    void     free_block(uint32_t id);
+    void     read_block(uint32_t id,
+                        char    *buf);
+    void     write_block(uint32_t    id,
+                         const char *buf);
 };
 
 // inode layer -----------------------------------------
 
-// begin from 1
 #define INODE_NUM  1024
 
 // Inodes per block.
 #define IPB           1
-//(BLOCK_SIZE / sizeof(struct inode))
-// IPB=1 is important for thread-safe
 
-// reserved blocks
-#define RESERVED_BLOCK(ninodes, nblocks)     (2 + ((nblocks) + BPB - 1)/BPB + ((ninodes) + IPB - 1)/IPB)
+// (BLOCK_SIZE / sizeof(struct inode))
 
 // Block containing inode i
-#define IBLOCK(i, nblocks)     (2 + ((nblocks) + BPB - 1)/BPB + ((i)-1)/IPB)
+#define IBLOCK(i, nblocks) ((nblocks) / BPB + (i) / IPB + 3) // inode id starts
+                                                             // from 1!!
 
 // Bitmap bits per block
-#define BPB           (BLOCK_SIZE*8)
+#define BPB           (BLOCK_SIZE * 8)                       // block id starts
+                                                             // from 1!!
 
 // Block containing bit for block b
-#define BBLOCK(b) ((b)/BPB + 2)
+#define BBLOCK(b) ((b) / BPB + 2)
 
 #define NDIRECT 32
 #define NINDIRECT (BLOCK_SIZE / sizeof(uint))
 #define MAXFILE (NDIRECT + NINDIRECT)
-
+#define MAXFILESIZE ((NDIRECT - 1 + NINDIRECT) * BLOCK_SIZE)
 
 typedef struct inode {
-  short type;
-  unsigned int size;
-  unsigned int atime;
-  unsigned int mtime;
-  unsigned int ctime;
-  blockid_t blocks[NDIRECT+1];   // Data block addresses
+    // short type;
+    unsigned int type;
+    unsigned int size;
+    unsigned int atime;
+    unsigned int mtime;
+    unsigned int ctime;
+    blockid_t    blocks[NDIRECT + 1]; // Data block addresses
 } inode_t;
 
 class inode_manager {
  private:
   block_manager *bm;
-  std::map <uint32_t, int> using_ino;
-  struct inode* get_inode(uint32_t inum);
   pthread_mutex_t inodes_mutex; 
+  struct inode* get_inode(uint32_t inum);
   void put_inode(uint32_t inum, struct inode *ino);
 
  public:
@@ -105,5 +109,4 @@ class inode_manager {
   void complete(uint32_t inum, uint32_t size);
 };
 
-#endif
-
+#endif // ifndef inode_h

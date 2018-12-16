@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <set>
 #include <unordered_map>
-#include "lock_client_cache.h"
+
 class extent_client;
 class lock_client;
 class yfs_client;
@@ -53,10 +53,6 @@ private:
   std::map<yfs_client::inum, uint32_t> pendingWrite;
 
   /* Add your member variables/functions here */
-  unsigned long long counter;
-  std::map<DatanodeIDProto, int> datanodes;
-  std::set<blockid_t> modified_blocks;
-  std::list<DatanodeIDProto> datanodes_list;
 private:
   void GetFileInfo();
   bool RecursiveLookup(const std::string &path, yfs_client::inum &ino, yfs_client::inum &last);
@@ -103,7 +99,6 @@ public:
   void PBSetSafeMode(const SetSafeModeRequestProto &req, SetSafeModeResponseProto &resp);
   void PBGetDatanodeReport(const GetDatanodeReportRequestProto &req, GetDatanodeReportResponseProto &resp);
   void PBDatanodeHeartbeat(const DatanodeHeartbeatRequestProto &req, DatanodeHeartbeatResponseProto &resp);
-  void CountBeat();
 };
 
 #endif

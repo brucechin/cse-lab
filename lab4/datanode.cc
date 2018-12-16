@@ -7,7 +7,6 @@
 
 using namespace std;
 
-
 int DataNode::init(const string &extent_dst, const string &namenode, const struct sockaddr_in *bindaddr) {
   ec = new extent_client(extent_dst);
 
@@ -37,28 +36,17 @@ int DataNode::init(const string &extent_dst, const string &namenode, const struc
   }
 
   /* Add your initialization here */
-  NewThread(this, &DataNode::HeartBeat);
 
   return 0;
 }
 
 bool DataNode::ReadBlock(blockid_t bid, uint64_t offset, uint64_t len, string &buf) {
   /* Your lab4 part 2 code */
-  string tmp_buf;
-  int tmp = ec->read_block(bid, buf);
-  if(offset > tmp_buf.size()) buf = "";
-  else buf = tmp_buf.substr(offset, len);
-
-  return true;
+  return false;
 }
 
 bool DataNode::WriteBlock(blockid_t bid, uint64_t offset, uint64_t len, const string &buf) {
   /* Your lab4 part 2 code */
-
-  string tmp_buf;
-  ec->read_block(bid, tmp_buf);
-  tmp_buf = tmp_buf.substr(0, offset) + buf + tmp_buf.substr(offset + len);
-  ec->write_block(bid, tmp_buf);
   return false;
 }
 

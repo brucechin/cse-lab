@@ -12,21 +12,12 @@
 #include "rpc.h"
 
 class lock_server {
-private:
-  struct Lock {
-      bool granted;
-      pthread_cond_t wait;
-      Lock() {
-          granted = true;
-          pthread_cond_init(&wait, NULL);
-      }
-  };
 
-  pthread_mutex_t map_mutex;
-  std::map<lock_protocol::lockid_t, Lock> locks;
  protected:
   int nacquire;
-  
+  std::set<lock_protocol::lockid_t> locks;
+  std::map<lock_protocol::lockid_t, pthread_cond_t> conds;
+  pthread_mutex_t mutex;
   // pthread_cond_t cond;
 
  public:

@@ -31,7 +31,6 @@ public:
   bool _ReadBlock(google::protobuf::io::CodedInputStream &is, google::protobuf::io::CodedOutputStream &os, google::protobuf::io::FileOutputStream &raw_os);
   bool _WriteBlock(google::protobuf::io::CodedInputStream &is, google::protobuf::io::CodedOutputStream &os, google::protobuf::io::FileOutputStream &raw_os);
   bool _TransferBlock(google::protobuf::io::CodedInputStream &is, google::protobuf::io::CodedOutputStream &os);
-  void HeartBeat();
 };
 
 #endif
