@@ -96,7 +96,7 @@ bool NameNode::Mkdir(yfs_client::inum parent, string name, mode_t mode, yfs_clie
   //printf("mkdir : %s\n",name);
   fflush(stdout);
   bool rst = !yfs->mkdir(parent, name.c_str(), mode, ino_out);
-  return res;
+  return rst;
 }
 
 bool NameNode::Create(yfs_client::inum parent, string name, mode_t mode, yfs_client::inum &ino_out) {
