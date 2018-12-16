@@ -1,0 +1,60 @@
+Host ayan
+	HostName 132.232.35.84
+	User ubuntu
+	Port 22
+	IdentityFile /Users/blindingend/.ssh/Blinding-tencent
+
+Host app
+	HostName 118.25.152.175
+	User cse
+	Port 22
+	IdentityFile /Users/blindingend/.ssh/csetest
+
+Host name
+	HostName 212.64.14.182
+	User cse
+	Port 22
+	IdentityFile /Users/blindingend/.ssh/csetest
+
+Host data1
+	HostName 212.64.15.233
+	User cse
+	Port 22
+	IdentityFile /Users/blindingend/.ssh/csetest
+
+Host data2
+	HostName 118.25.181.162
+	User cse
+	Port 22
+	IdentityFile /Users/blindingend/.ssh/csetest
+
+Host appu
+	HostName 118.25.152.175
+	User ubuntu
+	Port 22
+	IdentityFile /Users/blindingend/.ssh/Blindingkey.dms
+
+Host nameu
+	HostName 212.64.14.182
+	User ubuntu
+	Port 22
+	IdentityFile /Users/blindingend/.ssh/Blindingkey.dms
+
+Host data1u
+	HostName 212.64.15.233
+	User ubuntu
+	Port 22
+	IdentityFile /Users/blindingend/.ssh/Blindingkey.dms
+
+Host data2u
+	HostName 118.25.181.162
+	User ubuntu
+	Port 22
+	IdentityFile /Users/blindingend/.ssh/Blindingkey.dms
+	
+Host head2
+	HostName 202.121.181.113
+	User it_stu79
+	Port 22
+	IdentityFile /Users/blindingend/.ssh/cvwork
+
