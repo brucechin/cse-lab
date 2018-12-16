@@ -3,11 +3,14 @@
 
 #include <string>
 
-#include <queue>
+
 #include <map>
+#include <set>
+#include <queue>
 #include "lock_protocol.h"
 #include "rpc.h"
 #include "lock_server.h"
+#include <algorithm>
 
 
 class lock_server_cache {
@@ -23,7 +26,5 @@ class lock_server_cache {
   int acquire(lock_protocol::lockid_t, std::string id, int &);
   int release(lock_protocol::lockid_t, std::string id, int &);
 };
-
-
 
 #endif

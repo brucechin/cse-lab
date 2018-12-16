@@ -117,9 +117,7 @@ bool NameNode::Isfile(yfs_client::inum ino) {
   }
 
   if(tmp.type == extent_protocol::T_FILE) return true;
-  else if (tmp.type == extent_protocol::T_SYMLK) {
-      return false;
-  } 
+
   return false;
 }
 
