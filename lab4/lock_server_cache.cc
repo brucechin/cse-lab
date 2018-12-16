@@ -9,20 +9,47 @@
 #include "handle.h"
 #include "tprintf.h"
 
-
 lock_server_cache::lock_server_cache()
 {
-  pthread_mutex_init(&lock_map_mutex_, NULL);
-  pthread_cond_init(&lock_cond_, NULL);
-}
-
-lock_server::~lock_server(){
-
+	pthread_mutex_init(&locks_mutex_, NULL) == 0;
+	pthread_cond_init(&locks_cond_, NULL) == 0;
 }
 
 
+lock_server_cache::~lock_server_cache()
+{
+	
+}
 
+bool lock_server_cache::get_lock(std::string cid, lock_protocol::lockid_t lid){
+	bool ret = true;
+	locks_iterator_t it = locks_.find(lid);
+	if (it == locks_.end() 
+		&& 
+		(waiting_list_[lid].empty() || cid.compare(waiting_list_[lid].front()) == 0)){
+		locks_[lid] = cid;
+		ret = true;
+	}else{
+		ret = false;
+	}
+	return ret;
+}
 
+bool lock_server_cache::drop_lock(std::string cid, lock_protocol::lockid_t lid){
+	bool ret = true;
+	locks_iterator_t it = locks_.find(lid);
+	if (it == locks_.end()){
+		ret = false;
+	}else{
+		if (cid.compare(it->second) == 0){
+			locks_.erase(it);
+			ret = true;
+		}else{
+			ret = false;
+		}
+	}
+	return ret;
+}
 int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id, int &r)
 {
 	lock_protocol::status ret = lock_protocol::OK;
@@ -36,12 +63,12 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id, int 
 			}while(!(rst == rlock_protocol::OK || rst == rlock_protocol::OK_FREE));
 //			tprintf("revoke %s lock %lld\n", locks_[lid].c_str(), lid);
 			if (rst == rlock_protocol::OK_FREE){
-				VERIFY(drop_lock(locks_[lid], lid));
-				VERIFY(get_lock(id, lid));
+				drop_lock(locks_[lid], lid);
+				get_lock(id, lid);
 //				tprintf("%s got_lock %lld\n", id.c_str(), lid);
 	
 			}else{
-				VERIFY(rst == rlock_protocol::OK);
+				rst == rlock_protocol::OK;
 				ret = lock_protocol::RETRY;
 				r = lock_protocol_failure_code::LOCK_BUSY;
 //				tprintf("lock owner is %s\n", locks_[lid].c_str());
@@ -59,7 +86,7 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id, int 
 		}
 	}else{
 		if (!waiting_list_[lid].empty()){
-			VERIFY(waiting_list_[lid].front().compare(id) == 0);
+			waiting_list_[lid].front().compare(id) == 0;
 			waiting_list_[lid].pop();
 //			tprintf("%s popped from waiting list of lock %lld\n", id.c_str(), lid);
 			//need be revoked if queue is already not empty
@@ -110,39 +137,9 @@ lock_server_cache::release(lock_protocol::lockid_t lid, std::string id, int &r)
 lock_protocol::status
 lock_server_cache::stat(lock_protocol::lockid_t lid, int &r)
 {
-  tprintf("stat request\n");
-  r = nacquire;
-  return lock_protocol::OK;
-}
-
-bool lock_server_cache::get_lock(std::string cid, lock_protocol::lockid_t lid){
-	bool ret = true;
-	locks_iterator_t it = locks_.find(lid);
-	if (it == locks_.end() 
-		&& 
-		(waiting_list_[lid].empty() || cid.compare(waiting_list_[lid].front()) == 0)){
-		locks_[lid] = cid;
-		ret = true;
-	}else{
-		ret = false;
-	}
-	return ret;
-}
-
-bool lock_server_cache::drop_lock(std::string cid, lock_protocol::lockid_t lid){
-	bool ret = true;
-	locks_iterator_t it = locks_.find(lid);
-	if (it == locks_.end()){
-		ret = false;
-	}else{
-		if (cid.compare(it->second) == 0){
-			locks_.erase(it);
-			ret = true;
-		}else{
-			ret = false;
-		}
-	}
-	return ret;
+//	tprintf("stat request\n");
+	r = nacquire;
+	return lock_protocol::OK;
 }
 
 lock_protocol::status lock_server_cache::reversed_rpc(unsigned int proc, std::string cid, lock_protocol::lockid_t lid){

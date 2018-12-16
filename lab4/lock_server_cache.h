@@ -3,7 +3,7 @@
 
 #include <string>
 
-
+#include <queue>
 #include <map>
 #include "lock_protocol.h"
 #include "rpc.h"

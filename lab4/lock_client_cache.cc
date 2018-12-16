@@ -107,6 +107,8 @@ finish:
 lock_protocol::status
 lock_client_cache::release(lock_protocol::lockid_t lid)
 {
+
+
   int ret = lock_protocol::OK;
   pthread_mutex_lock(&pooll);
   tprintf("%s<<%ld>> <client release> %lld\n",id.c_str(), pthread_self(), lid);

@@ -19,12 +19,17 @@ class lock_protocol {
 
 class rlock_protocol {
 public:
-    enum xxstatus { OK, RPCERR };
+    enum xxstatus { OK, RPCERR, OK_FREE};
     typedef int status;
     enum rpc_numbers {
         revoke = 0x8001,
         retry = 0x8002
     };
+};
+
+class lock_protocol_failure_code{
+public:
+	enum codes{LOCK_BUSY = 0x9001, NOT_NEXT};
 };
 
 #endif 
