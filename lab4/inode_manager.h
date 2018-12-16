@@ -1,5 +1,3 @@
-// inode layer interface.
-
 #ifndef inode_h
 #define inode_h
 
@@ -7,9 +5,11 @@
 #include <pthread.h>
 #include "extent_protocol.h" // TODO: delete it
 
-#define DISK_SIZE  1024*1024*32
-#define BLOCK_SIZE (1024*16)
+#define DISK_SIZE  1024*1024*16
+#define BLOCK_SIZE 512
 #define BLOCK_NUM  (DISK_SIZE/BLOCK_SIZE)
+
+typedef uint32_t blockid_t;
 
 // disk layer -----------------------------------------
 
@@ -72,8 +72,9 @@ class block_manager {
 #define NINDIRECT (BLOCK_SIZE / sizeof(uint))
 #define MAXFILE (NDIRECT + NINDIRECT)
 
+
 typedef struct inode {
-  short type; // 0 for free
+  short type;
   unsigned int size;
   unsigned int atime;
   unsigned int mtime;
@@ -84,8 +85,9 @@ typedef struct inode {
 class inode_manager {
  private:
   block_manager *bm;
-  pthread_mutex_t inodes_mutex; 
+  std::map <uint32_t, int> using_ino;
   struct inode* get_inode(uint32_t inum);
+  pthread_mutex_t inodes_mutex; 
   void put_inode(uint32_t inum, struct inode *ino);
 
  public:
@@ -104,3 +106,4 @@ class inode_manager {
 };
 
 #endif
+

@@ -21,7 +21,7 @@ disk::read_block(blockid_t id, char *buf)
    *hint: use memcpy
   */
   if (id < 0 || id >= BLOCK_NUM || buf == NULL) {
-    printf("\tim: error! invalid blockid %d\n", id);
+    //printf("\tim: error! invalid blockid %d\n", id);
     return;
   }
 
@@ -36,7 +36,7 @@ disk::write_block(blockid_t id, const char *buf)
    *hint: just like read_block
   */
   if (id < 0 || id >= BLOCK_NUM || buf == NULL) {
-    printf("\tim: error! invalid blockid %d\n", id);
+    //printf("\tim: error! invalid blockid %d\n", id);
     return;
   }
 
@@ -74,7 +74,7 @@ block_manager::alloc_block()
       }
     }
   }
-  printf("\tim: error! out of blocks\n");
+  //printf("\tim: error! out of blocks\n");
   pthread_mutex_unlock(&bitmap_mutex);
   exit(0);
 }
@@ -153,7 +153,7 @@ inode_manager::inode_manager()
   bm = new block_manager();
   uint32_t root_dir = alloc_inode(extent_protocol::T_DIR);
   if (root_dir != 1) {
-    printf("\tim: error! alloc first inode %d, should be 1\n", root_dir);
+    //printf("\tim: error! alloc first inode %d, should be 1\n", root_dir);
     exit(0);
   }
   pthread_mutex_init(&inodes_mutex, NULL);
@@ -190,7 +190,7 @@ inode_manager::alloc_inode(uint32_t type)
       ++cur;
     }
   }
-  printf("\tim: error! out of inodes\n");
+  //printf("\tim: error! out of inodes\n");
   pthread_mutex_unlock(&inodes_mutex);
   exit(0);
 }
@@ -209,7 +209,7 @@ inode_manager::free_inode(uint32_t inum)
   bm->read_block(IBLOCK(inum, bm->sb.nblocks), buf);
   inode_t * ino = (inode_t *)buf + (inum - 1) % IPB;
   if (ino->type == 0) {
-    printf("\tim: error! inode is already freed\n");
+    //printf("\tim: error! inode is already freed\n");
     pthread_mutex_unlock(&inodes_mutex);
     exit(0);
   } else {
@@ -227,10 +227,10 @@ inode_manager::get_inode(uint32_t inum)
   struct inode *ino, *ino_disk;
   char buf[BLOCK_SIZE];
 
-  printf("\tim: get_inode %d\n", inum);
+  //printf("\tim: get_inode %d\n", inum);
 
   if (inum <= 0 || inum > INODE_NUM) {
-    printf("\tim: inum out of range\n");
+    //printf("\tim: inum out of range\n");
     return NULL;
   }
 
@@ -239,7 +239,7 @@ inode_manager::get_inode(uint32_t inum)
 
   ino_disk = (struct inode*)buf + inum%IPB;
   if (ino_disk->type == 0) {
-    printf("\tim: inode not exist\n");
+    //printf("\tim: inode not exist\n");
     return NULL;
   }
 
@@ -255,7 +255,7 @@ inode_manager::put_inode(uint32_t inum, struct inode *ino)
   char buf[BLOCK_SIZE];
   struct inode *ino_disk;
 
-  printf("\tim: put_inode %d\n", inum);
+  //printf("\tim: put_inode %d\n", inum);
   if (ino == NULL)
     return;
 
@@ -454,7 +454,6 @@ inode_manager::remove_file(uint32_t inum)
    * your lab1 code goes here
    * note: you need to consider about both the data block and inode of the file
    */
-  
   inode_t * ino = get_inode(inum);
   unsigned int block_num = (ino->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
   if (block_num <= NDIRECT) {
@@ -479,28 +478,26 @@ inode_manager::remove_file(uint32_t inum)
 void
 inode_manager::append_block(uint32_t inum, blockid_t &bid)
 {
-  /*
-   * your code goes here.
-   */
+
   bid = bm->alloc_block();
-  struct inode* ino = get_inode(inum);
+  struct inode * ino = get_inode(inum);
 
-  int num_blocks = ino->size / BLOCK_SIZE;
-  num_blocks += (ino->size % BLOCK_SIZE > 0) ? 1 : 0;
-  if(num_blocks > MAXFILE) return;
-
-  if(num_blocks < NDIRECT){
-    ino->blocks[num_blocks] = bid; // direct ref
-  }else{
-    int tmp[NINDIRECT]; //read indirect inode, append bid behind it and write back
-    if(num_blocks == NDIRECT) ino->blocks[NDIRECT] = bm->alloc_block();
-
-    bm->read_block(ino->blocks[NDIRECT], (char *)tmp);
-    tmp[num_blocks-NDIRECT] = bid;
-    bm->write_block(ino->blocks[NDIRECT], (char *)tmp);
+  int blocks = ino->size / BLOCK_SIZE + (ino->size % BLOCK_SIZE > 0);
+  if (blocks > MAXFILE){
+    return;
   }
-
-  num_blocks++;
+  if (blocks < NDIRECT){
+    ino->blocks[blocks] = bid;
+  }else{
+    int NIN[NINDIRECT];
+    if (blocks == NDIRECT){
+      ino->blocks[NDIRECT] = bm->alloc_block();
+    }
+    bm->read_block(ino->blocks[NDIRECT], (char *)NIN);
+    NIN[blocks-NDIRECT] = bid;
+    bm->write_block(ino->blocks[NDIRECT], (char *) NIN);
+  }
+  blocks++;
   ino->size += BLOCK_SIZE;
   put_inode(inum, ino);
 }
@@ -508,55 +505,58 @@ inode_manager::append_block(uint32_t inum, blockid_t &bid)
 void
 inode_manager::get_block_ids(uint32_t inum, std::list<blockid_t> &block_ids)
 {
-  /*
-   * your code goes here.
-   */
 
-   struct inode* ino = get_inode(inum);
-   int tmp[NINDIRECT];
-   int num_blocks = ino->size / BLOCK_SIZE;
-   num_blocks += (ino->size % BLOCK_SIZE > 0) ? 1 : 0;
-   
-   if(num_blocks <= NDIRECT){
-     for(int i = 0; i < num_blocks; i++) block_ids.push_back(ino->blocks[i]);
-   }else{
-     bm->read_block(ino->blocks[NDIRECT],(char *)tmp);
-     for(int i = 0; i < NDIRECT; i++) block_ids.push_back(ino->blocks[i]);
-
-     for(int i = NDIRECT; i < num_blocks; i++) block_ids.push_back(tmp[i-NDIRECT]);
-   }
-
+  struct inode * ino = get_inode(inum);
+  if (ino->type == 0)
+    return;
+  
+  int NIN[NINDIRECT];
+  int blocks = ino->size / BLOCK_SIZE + (ino->size % BLOCK_SIZE > 0);
+  
+  if (blocks <= NDIRECT){
+    for (int i=0;i<blocks;i++){
+      block_ids.push_back(ino->blocks[i]);
+    }
+  }else{
+    bm->read_block(ino->blocks[NDIRECT], (char *)NIN);
+    for (int i=0;i<NDIRECT;i++){
+      block_ids.push_back(ino->blocks[i]);
+    }
+    for (int i=NDIRECT;i<blocks;i++){
+      block_ids.push_back(NIN[i-NDIRECT]);
+    }
+  }
   return;
-   
-
 }
 
 void
 inode_manager::read_block(blockid_t id, char buf[BLOCK_SIZE])
 {
+  bm->read_block(id, buf);
   /*
    * your code goes here.
    */
-   bm->read_block(id, buf);
 
 }
 
 void
 inode_manager::write_block(blockid_t id, const char buf[BLOCK_SIZE])
 {
+  bm->write_block(id, buf);
   /*
    * your code goes here.
    */
-  bm->write_block(id, buf);
 }
 
 void
 inode_manager::complete(uint32_t inum, uint32_t size)
 {
-  /*
-   * your code goes here.
-   */
+
   struct inode * ino = get_inode(inum);
   ino->size = size;
   put_inode(inum, ino);
+  /*
+   * your code goes here.
+   */
 }
+
