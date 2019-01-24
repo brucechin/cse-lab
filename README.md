@@ -1,2 +1,2 @@
 # cse-lab
-cse labs
+labs based on YFS for Computer System Engineering course(MIT 6.006)
